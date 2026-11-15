@@ -113,7 +113,14 @@ export default function Login() {
         </div>
       </Show>
 
-      <div class="grid gap-3">
+      {/* Signing in can take a few seconds (server, then a fresh start): say so. */}
+      <Show when={busy()}>
+        <p class="flex h-11 items-center justify-center gap-3 font-semibold" role="status">
+          <Spinner /> Signing in…
+        </p>
+      </Show>
+      {/* Hidden rather than removed while busy: Google's button lives in this element. */}
+      <div class="grid gap-3" classList={{ hidden: busy() }}>
         <Show when={config()?.google_client_id}>
           {/* Same color scheme as Google's (light) iframe, or the browser paints it an opaque white box in dark mode. */}
           <div ref={googleButton} class="flex min-h-11 justify-center" style={{ 'color-scheme': 'light' }} />
@@ -124,9 +131,7 @@ export default function Login() {
             disabled={busy()}
             onClick={() => complete(() => api('/auth/login/dev', { method: 'POST', auth: false }))}
           >
-            <Show when={busy()} fallback="Dev login">
-              <Spinner />
-            </Show>
+            Dev login
           </button>
         </Show>
         <Show when={config() && !config().google_client_id && !config().dev_login_enabled}>

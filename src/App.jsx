@@ -15,6 +15,7 @@ import PlanEditor from './pages/PlanEditor';
 import Plans from './pages/Plans';
 import Profile from './pages/Profile';
 import Session from './pages/Session';
+import SpotifyDone from './pages/SpotifyDone';
 import WorkoutDetail from './pages/WorkoutDetail';
 
 function RequireAuth(props) {
@@ -45,6 +46,8 @@ export default function App() {
       )}
     >
       <Route path="/login" component={GuestOnly} />
+      {/* Signed in or not: the end of a Spotify sign-in (maybe in another browser). */}
+      <Route path="/spotify/done" component={SpotifyDone} />
       <Route path="/" component={RequireAuth}>
         <Route path="/" component={Home} />
         <Route path="/session" component={Session} />
