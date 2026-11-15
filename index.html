@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Terminator</title>
+    <meta name="description" content="Log every set. Even offline." />
+    <meta name="theme-color" content="#f2f0ea" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Terminator" />
+    <script>
+      // Apply the saved theme before first paint (no light/dark flash).
+      try {
+        var t = JSON.parse(localStorage.getItem('terminator:pref:theme'));
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+        var dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.querySelector('meta[name="theme-color"]').content = dark ? '#0f0f0f' : '#f2f0ea';
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/index.jsx"></script>
+  </body>
+</html>

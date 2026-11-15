@@ -1,0 +1,140 @@
+import { createEffect, createSignal, onMount, Show } from 'solid-js';
+import { api, OfflineError } from '../lib/api';
+import { sessionExpired, signIn } from '../lib/auth';
+import { pendingEntries } from '../lib/sync';
+import { Logo, Spinner } from '../components/ui';
+
+const GIS_SRC = 'https://accounts.google.com/gsi/client';
+
+function loadGoogleScript() {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = GIS_SRC;
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Could not load Google Sign-In'));
+    document.head.appendChild(script);
+  });
+}
+
+export default function Login() {
+  const [config, setConfig] = createSignal(null);
+  const [error, setError] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+  let googleButton;
+
+  const loadConfig = async () => {
+    setError('');
+    try {
+      setConfig(await api('/auth/config', { auth: false }));
+    } catch (err) {
+      setError(err instanceof OfflineError ? "You're offline. Connect to sign in." : err.message);
+    }
+  };
+  onMount(loadConfig);
+
+  async function complete(getTokens) {
+    setBusy(true);
+    setError('');
+    try {
+      const tokens = await getTokens();
+      const user = await api('/users/me', { token: tokens.access_token });
+      await signIn(tokens, user);
+      window.location.replace('/'); // fresh start with this account's data
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  createEffect(() => {
+    const clientId = config()?.google_client_id;
+    if (!clientId) return;
+    loadGoogleScript()
+      .then(() => {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: ({ credential }) =>
+            complete(() => api('/auth/google', { method: 'POST', auth: false, body: { id_token: credential } })),
+        });
+        window.google.accounts.id.renderButton(googleButton, {
+          theme:
+            document.documentElement.dataset.theme === 'dark' ||
+            (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches)
+              ? 'filled_black'
+              : 'outline',
+          size: 'large',
+          shape: 'rectangular',
+          text: 'continue_with',
+          width: Math.min(googleButton.offsetWidth || 320, 400),
+        });
+      })
+      .catch((err) => setError(err.message));
+  });
+
+  return (
+    <div
+      class="mx-auto flex min-h-dvh max-w-xl flex-col px-6"
+      style={{
+        'padding-top': 'calc(env(safe-area-inset-top) + 1.5rem)',
+        'padding-bottom': 'calc(env(safe-area-inset-bottom) + 1.5rem)',
+      }}
+    >
+      <Logo class="h-12 w-12" />
+
+      <div class="flex flex-1 flex-col justify-center py-10">
+        <h1 class="display text-[clamp(4.5rem,24vw,8.5rem)] leading-[0.82]">
+          Termi
+          <br />
+          nator<span class="text-signal">.</span>
+        </h1>
+        <p class="mt-5 max-w-xs text-lg text-muted">Log every set. Even with no signal at the gym.</p>
+      </div>
+
+      <Show when={sessionExpired()}>
+        <p role="alert" class="mb-4 border-l-4 border-warn bg-sunk px-3 py-2 text-sm">
+          Your session expired. Sign in again to continue.
+          <Show when={pendingEntries().length}>
+            {' '}
+            {pendingEntries().length} unsynced workout(s) are safe on this device and will upload after you sign in.
+          </Show>
+        </p>
+      </Show>
+
+      <Show when={error()}>
+        <div role="alert" class="mb-4 flex items-center gap-3 border-l-4 border-bad bg-sunk px-3 py-2 text-sm">
+          <span class="flex-1">{error()}</span>
+          <Show when={!config()}>
+            <button class="btn btn-sm" onClick={loadConfig}>
+              Retry
+            </button>
+          </Show>
+        </div>
+      </Show>
+
+      <div class="grid gap-3">
+        <Show when={config()?.google_client_id}>
+          <div ref={googleButton} class="flex min-h-11 justify-center" />
+        </Show>
+        <Show when={config()?.dev_login_enabled}>
+          <button
+            class="btn btn-lg btn-signal btn-block"
+            disabled={busy()}
+            onClick={() => complete(() => api('/auth/login/dev', { method: 'POST', auth: false }))}
+          >
+            <Show when={busy()} fallback="Dev login">
+              <Spinner />
+            </Show>
+          </button>
+        </Show>
+        <Show when={config() && !config().google_client_id && !config().dev_login_enabled}>
+          <p class="text-sm text-muted">No sign-in method is configured. Set GOOGLE_CLIENT_ID on the server.</p>
+        </Show>
+        <Show when={!config() && !error()}>
+          <Spinner class="mx-auto" />
+        </Show>
+      </div>
+    </div>
+  );
+}
