@@ -35,7 +35,7 @@ function yScale(values) {
 const compact = new Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 1 });
 const full = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 });
 const dayMonth = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
-const monthYear = new Intl.DateTimeFormat('en-GB', { month: 'short', year: '2-digit' });
+const monthYear = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' });
 
 export default function LineChart(props) {
   let wrap;

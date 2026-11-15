@@ -2,6 +2,7 @@ import { createEffect, createSignal, onMount, Show } from 'solid-js';
 import { api, OfflineError } from '../lib/api';
 import { sessionExpired, signIn } from '../lib/auth';
 import { pendingEntries } from '../lib/sync';
+import { plural } from '../lib/format';
 import { Logo, Spinner } from '../components/ui';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
@@ -97,7 +98,8 @@ export default function Login() {
           Your session expired. Sign in again to continue.
           <Show when={pendingEntries().length}>
             {' '}
-            {pendingEntries().length} unsynced workout(s) are safe on this device and will upload after you sign in.
+            {plural(pendingEntries().length, 'unsynced workout')} {pendingEntries().length === 1 ? 'is' : 'are'} safe on
+            this device and will upload after you sign in.
           </Show>
         </p>
       </Show>

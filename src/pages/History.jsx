@@ -1,9 +1,10 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { api } from '../lib/api';
 import { RECENT_LIMIT, workoutList, workouts } from '../lib/data';
-import { formatNumber, volume } from '../lib/format';
+import { formatNumber, plural, volume } from '../lib/format';
 import { unit } from '../lib/prefs';
 import { addDays, startOfWeek } from '../lib/dates';
+import { totalWorkouts } from '../lib/stats';
 import { toast } from '../lib/toast';
 import { useStart } from '../components/StartSheet';
 import { EmptyState, LogTabs, PageHeader, Spinner } from '../components/ui';
@@ -63,7 +64,7 @@ export default function History() {
 
   return (
     <>
-      <PageHeader eyebrow={`${all().length} workouts`} title="Log" />
+      <PageHeader eyebrow={plural(totalWorkouts() ?? all().length, 'workout')} title="Log" />
       <LogTabs active="workouts" />
       <Show
         when={all().length}

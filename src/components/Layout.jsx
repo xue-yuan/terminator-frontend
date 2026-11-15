@@ -1,8 +1,9 @@
-import { Show } from 'solid-js';
+import { createEffect, on, Show } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { Play } from 'lucide-solid';
 import { formatClock } from '../lib/format';
+import { enter } from '../lib/motion';
 import { useNow } from '../lib/now';
 import { draft, elapsedSeconds } from '../lib/session';
 import { pendingEntries } from '../lib/sync';
@@ -13,9 +14,18 @@ const FULLSCREEN = /^\/(session|plans\/new|plans\/\d+\/edit)\/?$/;
 export default function AppLayout(props) {
   const location = useLocation();
   const fullscreen = () => FULLSCREEN.test(location.pathname);
+  let main;
+  // A new page eases in instead of snapping into place.
+  createEffect(
+    on(
+      () => location.pathname,
+      () => enter(main),
+      { defer: true },
+    ),
+  );
   return (
     <div class="min-h-dvh">
-      <main class="mx-auto max-w-xl px-5" classList={{ 'pb-36': !fullscreen() }}>
+      <main ref={main} class="mx-auto max-w-xl px-5" classList={{ 'pb-36': !fullscreen() }}>
         {props.children}
       </main>
       <Show when={!fullscreen()}>

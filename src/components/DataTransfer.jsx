@@ -3,7 +3,7 @@ import { FileSpreadsheet, FileUp, HardDriveDownload } from 'lucide-solid';
 import { FORMAT_NAMES, readImportFile, summarize, workoutsToCsv } from '../lib/backup';
 import { exportBackup, importBackup } from '../lib/data';
 import { downloadFile, fileDate } from '../lib/download';
-import { formatDay } from '../lib/format';
+import { formatDay, plural } from '../lib/format';
 import { online } from '../lib/network';
 import { unit as defaultUnit } from '../lib/prefs';
 import { toast } from '../lib/toast';
@@ -91,10 +91,10 @@ function ImportSheet(props) {
     setProgress({ done: 0, total: info().workouts });
     try {
       const r = await importBackup(parsed().backup, (done, total) => setProgress({ done, total }));
-      const parts = [`${r.workouts_created} new workout(s)`];
+      const parts = [plural(r.workouts_created, 'new workout')];
       if (r.workouts_updated) parts.push(`${r.workouts_updated} updated`);
-      if (r.plans_created) parts.push(`${r.plans_created} plan(s)`);
-      if (r.body_weights) parts.push(`${r.body_weights} weigh-in(s)`);
+      if (r.plans_created) parts.push(plural(r.plans_created, 'plan'));
+      if (r.body_weights) parts.push(plural(r.body_weights, 'weigh-in'));
       toast(`Imported ${parts.join(', ')}`, 'success');
       props.onClose();
     } catch (err) {
@@ -120,11 +120,13 @@ function ImportSheet(props) {
           </Show>
           <Show when={info().plans || info().bodyWeights}>
             <p class="mt-1 text-muted">
-              {info().plans} plan(s) · {info().bodyWeights} weigh-in(s)
+              {plural(info().plans, 'plan')} · {plural(info().bodyWeights, 'weigh-in')}
             </p>
           </Show>
           <Show when={parsed().skipped}>
-            <p class="mt-2 text-sm text-muted">{parsed().skipped} row(s) without reps (e.g. cardio) are left out.</p>
+            <p class="mt-2 text-sm text-muted">
+              {plural(parsed().skipped, 'row')} without reps (e.g. cardio) left out.
+            </p>
           </Show>
           <Show when={parsed().format === 'strong'}>
             <div class="mt-4 flex items-center justify-between gap-3">

@@ -30,6 +30,7 @@ import {
   timeAgo,
   toLocalInput,
 } from '../lib/format';
+import { enter } from '../lib/motion';
 import { useNow } from '../lib/now';
 import { unit as displayUnit, keepAwake } from '../lib/prefs';
 import { convert, UNITS } from '../lib/units';
@@ -335,10 +336,18 @@ function FocusedExercise(props) {
   const focused = () => draft().focus.set;
   const allDone = () => ex().sets.length > 0 && ex().sets.every((s) => s.done);
   const nextExercise = () => draft().exercises[i() + 1];
+  let section;
+  createEffect(
+    on(
+      () => ex()?.key,
+      () => enter(section, { y: 4 }),
+      { defer: true },
+    ),
+  );
 
   return (
     <Show when={ex()}>
-      <section class="pt-5">
+      <section ref={section} class="pt-5">
         <div class="flex items-center gap-2">
           <p class="eyebrow flex-1">
             Exercise {i() + 1} of {draft().exercises.length}
@@ -479,7 +488,7 @@ function SetRow(props) {
           }}
         >
           <Show when={set().done} fallback={props.label}>
-            <Show when={isWarmup(set())} fallback={<Check size={18} strokeWidth={3} />}>
+            <Show when={isWarmup(set())} fallback={<Check size={18} strokeWidth={3} class="anim-check" />}>
               W
             </Show>
           </Show>
@@ -571,15 +580,32 @@ function SetEditor(props) {
     }
   };
   return (
-    <li class="my-2 border-2 border-ink bg-raised p-4 shadow-[4px_4px_0_var(--ink)]">
+    <li
+      ref={(el) => queueMicrotask(() => el.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }))}
+      // Margins keep it clear of the sticky header and the rest timer when scrolled into view.
+      class="anim-pop my-2 scroll-mt-40 scroll-mb-44 border-2 border-ink bg-raised p-4 shadow-[4px_4px_0_var(--ink)]"
+    >
       <div class="mb-3 flex items-center gap-2">
         <p class="display flex-1 text-2xl">{props.label === 'W' ? 'Warm-up' : `Set ${props.label}`}</p>
         <button
-          class="tag"
-          classList={{ 'tag-solid': isWarmup(set()), 'text-muted': !isWarmup(set()) }}
-          aria-pressed={isWarmup(set())}
+          type="button"
+          role="switch"
+          aria-checked={isWarmup(set())}
+          class="flex h-9 items-center gap-2 px-1 text-sm font-semibold"
+          classList={{ 'text-muted': !isWarmup(set()) }}
           onClick={() => toggleWarmup(props.i, props.j)}
         >
+          <span
+            class="flex h-5 w-5 items-center justify-center border-2"
+            classList={{
+              'border-signal bg-signal text-on-signal': isWarmup(set()),
+              'border-current': !isWarmup(set()),
+            }}
+          >
+            <Show when={isWarmup(set())}>
+              <Check size={12} strokeWidth={3.5} />
+            </Show>
+          </span>
           Warm-up
         </button>
         <Show when={set().done}>
@@ -686,7 +712,7 @@ function RestBar() {
   return (
     <Show when={remaining() != null}>
       <div
-        class="border-t-2 border-ink pb-safe"
+        class="anim-slide-up border-t-2 border-ink pb-safe"
         classList={{ 'bg-ink text-paper': remaining() > 0, 'bg-signal text-on-signal': remaining() === 0 }}
         role="timer"
         aria-live="off"

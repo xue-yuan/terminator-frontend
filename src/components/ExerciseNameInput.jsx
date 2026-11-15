@@ -1,14 +1,26 @@
-import { createMemo, createSignal, For, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
 import { exerciseKey, matchesQuery } from '../lib/exercises';
+
+const MAX_OPTIONS = 40;
 
 /**
  * Text input with exercise suggestions: your own exercises first, then the
  * built-in catalog (searchable in English or Chinese). Suggestions are
- * strings or { name, zh?, mine? }.
- * (Custom instead of <datalist>, which is unreliable on iOS.)
+ * strings or { name, zh?, mine? }. (Custom instead of <datalist>, which is
+ * unreliable on iOS.)
+ *
+ * The list stays open while you browse it: hiding the keyboard doesn't close
+ * it. It closes, and the name is committed (onCommit), when you pick an option,
+ * press Enter, tap outside, or move to another field; Escape just closes it.
+ * Options are picked on click, which a finger that lands on one to scroll the
+ * list never fires.
  */
 export default function ExerciseNameInput(props) {
   const [open, setOpen] = createSignal(false);
+  const [active, setActive] = createSignal(false); // focused or browsing the list
+  let wrapper;
+  let input;
+
   const matches = createMemo(() => {
     const q = exerciseKey(props.value);
     const seen = new Set();
@@ -20,19 +32,40 @@ export default function ExerciseNameInput(props) {
         seen.add(key);
         return matchesQuery(o, q);
       })
-      .slice(0, 8);
+      .slice(0, MAX_OPTIONS);
   });
 
-  const choose = (name) => {
-    props.onInput(name);
+  function finish() {
+    if (!active()) return;
+    setActive(false);
     setOpen(false);
+    props.onCommit?.();
+  }
+
+  function choose(name) {
+    props.onInput(name);
+    setActive(false);
+    setOpen(false);
+    input?.blur(); // done typing: put the keyboard away
     props.onPick?.(name);
     props.onCommit?.();
-  };
+  }
 
-  let input;
+  // A tap anywhere else ends it (blur alone doesn't: that's the keyboard closing).
+  createEffect(() => {
+    if (!active()) return;
+    const onPointerDown = (e) => wrapper && !wrapper.contains(e.target) && finish();
+    document.addEventListener('pointerdown', onPointerDown, true);
+    onCleanup(() => document.removeEventListener('pointerdown', onPointerDown, true));
+  });
+
   return (
-    <div class="relative min-w-0 flex-1">
+    <div
+      ref={wrapper}
+      class="relative min-w-0 flex-1"
+      // Focus moving to another field (e.g. Tab) ends it; no target means the keyboard was just put away.
+      onFocusOut={(e) => e.relatedTarget && !wrapper.contains(e.relatedTarget) && finish()}
+    >
       <input
         ref={(el) => {
           input = el;
@@ -46,36 +79,37 @@ export default function ExerciseNameInput(props) {
         autocapitalize="words"
         enterkeyhint="done"
         aria-label={props.label ?? 'Exercise name'}
+        aria-expanded={open() && matches().length > 0}
+        role="combobox"
         onInput={(e) => {
           props.onInput(e.currentTarget.value);
+          setActive(true);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => {
-          setOpen(false);
-          props.onCommit?.();
+        onFocus={() => {
+          setActive(true);
+          setOpen(true);
         }}
         onKeyDown={(e) => {
-          // Inside a <form>, let Enter submit it; otherwise just close the keyboard.
-          if (e.key === 'Enter' && !input.form) input.blur();
+          if (e.key === 'Escape') setOpen(false);
+          if (e.key !== 'Enter') return;
+          finish();
+          // Inside a <form>, Enter submits it; otherwise just put the keyboard away.
+          if (!input.form) input.blur();
         }}
       />
       <Show when={open() && matches().length}>
         <ul
-          class="absolute inset-x-0 top-full z-20 border-2 border-t-0 border-ink bg-raised shadow-[4px_4px_0_var(--ink)]"
+          class="anim-pop absolute inset-x-0 top-full z-20 max-h-[min(50dvh,24rem)] origin-top touch-pan-y overflow-y-auto overscroll-contain border-2 border-t-0 border-ink bg-raised shadow-[4px_4px_0_var(--ink)]"
           role="listbox"
         >
           <For each={matches()}>
             {(option) => (
               <li role="option">
-                {/* pointerdown fires before the input's blur closes the list */}
                 <button
                   type="button"
-                  class="rule flex w-full items-baseline gap-2 border-b px-3 py-2.5 text-left last:border-b-0 active:bg-sunk"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    choose(option.name);
-                  }}
+                  class="rule flex min-h-12 w-full items-center gap-2 border-b px-3 text-left last:border-b-0 active:bg-sunk"
+                  onClick={() => choose(option.name)}
                 >
                   <span class="min-w-0 flex-1 truncate font-medium">{option.name}</span>
                   <Show when={option.zh}>

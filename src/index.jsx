@@ -14,6 +14,9 @@ import './lib/sync';
 
 render(() => <App />, document.getElementById('root'));
 
+// iOS Safari only shows :active (press) styles once the page listens for touches.
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 // Show cached data instantly, then refresh in the background.
 if (isSignedIn()) refreshAll({ force: true });
 document.addEventListener('visibilitychange', () => {

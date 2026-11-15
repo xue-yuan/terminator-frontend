@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import { useNavigate, useParams } from '@solidjs/router';
-import { ArrowDown, ArrowRight, ArrowUp, CloudOff, Link2, Plus, Trash2, X } from 'lucide-solid';
+import { ArrowDown, ArrowRight, ArrowUp, CloudOff, Ellipsis, Link2, Plus, Trash2, X } from 'lucide-solid';
 import { api } from '../lib/api';
 import { exerciseOptions, plans, savePlan } from '../lib/data';
 import { supersetLabels } from '../lib/format';
@@ -9,7 +9,7 @@ import { online } from '../lib/network';
 import { PLAN_TEMPLATES } from '../lib/templates';
 import { toast } from '../lib/toast';
 import { uuid } from '../lib/uuid';
-import { ConfirmSheet, Spinner } from '../components/ui';
+import { ConfirmSheet, Sheet, Spinner } from '../components/ui';
 import ExerciseNameInput from '../components/ExerciseNameInput';
 
 const str = (v) => (v == null ? '' : String(v));
@@ -72,6 +72,7 @@ export default function PlanEditor() {
   const [picking, setPicking] = createSignal(!params.id);
   const [saving, setSaving] = createSignal(false);
   const [confirmLeave, setConfirmLeave] = createSignal(false);
+  const [menu, setMenu] = createSignal(null); // { d, e }: the exercise whose menu is open
   let pristine = '';
 
   onMount(async () => {
@@ -316,26 +317,11 @@ export default function PlanEditor() {
                           <Link2 size={16} />
                         </button>
                         <button
-                          class="btn btn-icon"
-                          aria-label="Move exercise up"
-                          disabled={e() === 0}
-                          onClick={() =>
-                            setForm(
-                              'days',
-                              d(),
-                              'exercises',
-                              produce((l) => move(l, e(), -1)),
-                            )
-                          }
-                        >
-                          <ArrowUp size={16} />
-                        </button>
-                        <button
                           class="btn btn-icon -mr-3"
-                          aria-label="Remove exercise"
-                          onClick={() => setForm('days', d(), 'exercises', (l) => l.filter((_, k) => k !== e()))}
+                          aria-label={`More for ${ex.exercise_name || 'this exercise'}`}
+                          onClick={() => setMenu({ d: d(), e: e() })}
                         >
-                          <X size={18} />
+                          <Ellipsis size={20} />
                         </button>
                       </div>
                       <div class="mt-2 ml-7 grid grid-cols-[3.5rem_auto_3.5rem_auto_3.5rem_auto] items-center gap-2 text-sm text-muted">
@@ -368,6 +354,65 @@ export default function PlanEditor() {
         </button>
         <div class="h-10" />
       </Show>
+
+      <Sheet
+        open={!!menu()}
+        onClose={() => setMenu(null)}
+        title={(menu() && form.days[menu().d]?.exercises[menu().e]?.exercise_name) || 'Exercise'}
+      >
+        <Show when={menu()}>
+          {(m) => {
+            const count = () => form.days[m().d]?.exercises.length ?? 0;
+            const act = (fn) => {
+              fn();
+              setMenu(null);
+            };
+            const row = 'rule flex items-center gap-3 border-b py-4 text-left text-lg font-medium disabled:opacity-35';
+            return (
+              <div class="rule grid border-t">
+                <button
+                  class={row}
+                  disabled={m().e === 0}
+                  onClick={() =>
+                    act(() =>
+                      setForm(
+                        'days',
+                        m().d,
+                        'exercises',
+                        produce((l) => move(l, m().e, -1)),
+                      ),
+                    )
+                  }
+                >
+                  <ArrowUp size={20} /> Move earlier
+                </button>
+                <button
+                  class={row}
+                  disabled={m().e >= count() - 1}
+                  onClick={() =>
+                    act(() =>
+                      setForm(
+                        'days',
+                        m().d,
+                        'exercises',
+                        produce((l) => move(l, m().e, 1)),
+                      ),
+                    )
+                  }
+                >
+                  <ArrowDown size={20} /> Move later
+                </button>
+                <button
+                  class={`${row} text-bad`}
+                  onClick={() => act(() => setForm('days', m().d, 'exercises', (l) => l.filter((_, k) => k !== m().e)))}
+                >
+                  <Trash2 size={20} /> Remove exercise
+                </button>
+              </div>
+            );
+          }}
+        </Show>
+      </Sheet>
 
       <ConfirmSheet
         open={confirmLeave()}

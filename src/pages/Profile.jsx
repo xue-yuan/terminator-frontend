@@ -3,7 +3,7 @@ import { A } from '@solidjs/router';
 import { ChevronRight, CloudOff, Download, LogOut, Music, RefreshCw, Scale, Share, ShieldCheck } from 'lucide-solid';
 import { currentUser, isAdmin, signOut } from '../lib/auth';
 import { bodyWeightList, refreshAll } from '../lib/data';
-import { formatDay, formatWeight, timeAgo } from '../lib/format';
+import { formatDay, formatWeight, plural, timeAgo } from '../lib/format';
 import { canPromptInstall, isIOS, isStandalone, promptInstall } from '../lib/install';
 import { online } from '../lib/network';
 import {
@@ -89,7 +89,7 @@ export default function Profile() {
             </p>
             <p class="mt-0.5 text-sm text-muted">
               <Show when={pendingEntries().length} fallback="Everything is synced.">
-                {pendingEntries().length} change(s) waiting to upload.
+                {plural(pendingEntries().length, 'change')} waiting to upload.
               </Show>
               <Show when={lastSyncedAt()}> Last upload {timeAgo(lastSyncedAt())}.</Show>
             </p>
@@ -307,7 +307,8 @@ export default function Profile() {
         danger={unsynced() > 0}
       >
         <Show when={unsynced()} fallback="Your data stays safe on the server.">
-          {unsynced()} change(s) haven't been uploaded yet and will be lost. Sync first if you can.
+          {plural(unsynced(), 'change')} {unsynced() === 1 ? "hasn't" : "haven't"} been uploaded yet and will be lost.
+          Sync first if you can.
         </Show>
       </ConfirmSheet>
     </>

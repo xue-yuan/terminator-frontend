@@ -21,6 +21,9 @@ export const formatTime = (iso) => timeFmt.format(new Date(iso));
 export const formatWeekday = (iso) => weekdayFmt.format(new Date(iso));
 export const formatNumber = (n) => numberFmt.format(Math.round(n));
 
+/** "1 workout", "3 workouts". */
+export const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
+
 export function formatWeight(w) {
   return Number.isInteger(w) ? String(w) : String(Math.round(w * 100) / 100);
 }

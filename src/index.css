@@ -135,6 +135,16 @@
     border-color: color-mix(in oklab, var(--ink) 13%, transparent);
   }
 
+  /* Tappable things ease their colours instead of jumping (and no grey iOS flash). */
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease,
+      border-color 120ms ease;
+  }
+
   /* Buttons */
   .btn {
     display: inline-flex;
@@ -159,7 +169,7 @@
       opacity 120ms ease;
   }
   .btn:active:not(:disabled) {
-    transform: translateY(1px) scale(0.99);
+    transform: scale(0.97);
   }
   .btn:disabled {
     opacity: 0.35;
@@ -312,6 +322,61 @@
   @keyframes toast-out {
     to {
       transform: translateY(8px);
+      opacity: 0;
+    }
+  }
+
+  /* Motion: short and quiet (all of it is cut to 1 ms with reduced motion, below). */
+  .anim-pop {
+    animation: pop-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .anim-slide-up {
+    animation: slide-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .anim-check {
+    animation: check-pop 260ms cubic-bezier(0.3, 1.5, 0.5, 1);
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes check-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+  dialog.sheet::backdrop {
+    animation: fade-in 180ms ease-out;
+  }
+  /* Closing (components/ui.jsx Sheet): slide away before the dialog closes. */
+  dialog.sheet[data-closing] {
+    pointer-events: none;
+    animation: sheet-down 150ms ease-in forwards;
+  }
+  dialog.sheet[data-closing]::backdrop {
+    animation: fade-out 150ms ease-in forwards;
+  }
+  @keyframes sheet-down {
+    to {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-out {
+    to {
       opacity: 0;
     }
   }

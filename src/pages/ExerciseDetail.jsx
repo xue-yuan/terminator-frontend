@@ -15,7 +15,7 @@ import {
   saveExercise,
 } from '../lib/data';
 import { catalogEntry, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
-import { formatClock, formatDay, formatNumber, formatWeight } from '../lib/format';
+import { formatClock, formatDay, formatNumber, formatWeight, plural } from '../lib/format';
 import { online } from '../lib/network';
 import { restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';
 import { chartPoints, estimate1RM, METRICS, metricsFor, normalizeSessions, records } from '../lib/progress';
@@ -346,7 +346,7 @@ function EditSheet(props) {
     try {
       const res = await mergeExercise(from.id, target.id);
       renameInDraft(from.name, target.name);
-      toast(`Merged into ${target.name} (${res.workouts} workout(s))`, 'success');
+      toast(`Merged into ${target.name} (${plural(res.workouts, 'workout')})`, 'success');
       props.onClose();
       props.onGone(target.id);
     } catch (err) {

@@ -1,4 +1,5 @@
 import { createEffect, For, Show } from 'solid-js';
+import { reducedMotion } from '../lib/motion';
 import { Dynamic } from 'solid-js/web';
 import { A, useNavigate } from '@solidjs/router';
 import { ArrowLeft, Check, CloudOff, CloudUpload, Info, RefreshCw, TriangleAlert, Trophy, X } from 'lucide-solid';
@@ -208,10 +209,24 @@ export function EmptyState(props) {
 /** Bottom sheet built on <dialog>. Controlled by `open`. */
 export function Sheet(props) {
   let dialog;
+  let closing;
   createEffect(() => {
     if (!dialog) return;
-    if (props.open && !dialog.open) dialog.showModal();
-    if (!props.open && dialog.open) dialog.close();
+    if (props.open) {
+      clearTimeout(closing);
+      delete dialog.dataset.closing;
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open && !('closing' in dialog.dataset)) {
+      // Let it slide away (index.css) before it really closes.
+      dialog.dataset.closing = '';
+      closing = setTimeout(
+        () => {
+          delete dialog.dataset.closing;
+          dialog.close();
+        },
+        reducedMotion() ? 0 : 150,
+      );
+    }
   });
   return (
     <dialog
@@ -225,7 +240,10 @@ export function Sheet(props) {
     >
       <div class="px-5 pt-4" style={{ 'padding-bottom': 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
         <div class="mb-3 flex items-start gap-2">
-          <h2 class="display flex-1 pt-1 text-[1.75rem]">{props.title}</h2>
+          {/* Focus starts here (showModal focuses autofocus): not on the close button, which would show a focus ring. */}
+          <h2 class="display flex-1 pt-1 text-[1.75rem] outline-none" tabindex="-1" autofocus>
+            {props.title}
+          </h2>
           <button type="button" class="btn btn-icon -mr-2" aria-label="Close" onClick={() => props.onClose()}>
             <X size={22} />
           </button>
