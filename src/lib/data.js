@@ -100,6 +100,9 @@ export const exercises = cachedQuery(documentCache('exercises'), () => api('/exe
 /** Your weigh-ins, newest first. */
 export const bodyWeights = cachedQuery(documentCache('bodyWeights'), () => api('/body-weights/'));
 
+/** Any of the above being fetched (the loading bar at the top). */
+export const fetching = () => [workouts, plans, summary, exercises, bodyWeights].some((q) => q.loading());
+
 let lastRefresh = 0;
 export function refreshAll({ force = false } = {}) {
   if (!force && Date.now() - lastRefresh < 15_000) return;

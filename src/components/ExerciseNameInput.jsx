@@ -100,7 +100,7 @@ export default function ExerciseNameInput(props) {
       />
       <Show when={open() && matches().length}>
         <ul
-          class="anim-pop absolute inset-x-0 top-full z-20 max-h-[min(50dvh,24rem)] origin-top touch-pan-y overflow-y-auto overscroll-contain border-2 border-t-0 border-ink bg-raised shadow-[4px_4px_0_var(--ink)]"
+          class="anim-drop absolute inset-x-0 top-full z-20 max-h-[min(50dvh,24rem)] origin-top touch-pan-y overflow-y-auto overscroll-contain border-2 border-t-0 border-ink bg-raised shadow-[4px_4px_0_var(--ink)]"
           role="listbox"
         >
           <For each={matches()}>

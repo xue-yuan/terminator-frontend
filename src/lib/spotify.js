@@ -150,15 +150,24 @@ async function startOnADevice() {
   await spotifyApi('/me/player', { method: 'PUT', body: { device_ids: [device.id], play: true } });
 }
 
-async function command(run, optimistic) {
+// Skips in flight: the bar dims the old track until the new one shows up.
+const [skips, setSkips] = createSignal(0);
+export const changingTrack = () => skips() > 0;
+
+async function command(run, { optimistic, skip = false } = {}) {
   if (optimistic) setPlayer((p) => (p && !p.idle ? { ...p, ...optimistic } : p));
+  if (skip) setSkips((n) => n + 1);
   try {
     await run();
     setProblem(null);
   } catch (err) {
     setProblem(describeProblem(err));
   }
-  setTimeout(refreshPlayer, 400); // Spotify takes a moment to apply it
+  // Spotify takes a moment to apply it.
+  setTimeout(async () => {
+    await refreshPlayer();
+    if (skip) setSkips((n) => n - 1);
+  }, 400);
 }
 
 /** Play (on the active device, else start on one). */
@@ -172,18 +181,18 @@ export function play() {
         await startOnADevice(); // no active device
       }
     },
-    { playing: true },
+    { optimistic: { playing: true } },
   );
 }
 
 export function pause() {
-  return command(() => spotifyApi('/me/player/pause', { method: 'PUT' }), { playing: false });
+  return command(() => spotifyApi('/me/player/pause', { method: 'PUT' }), { optimistic: { playing: false } });
 }
 
 export function nextTrack() {
-  return command(() => spotifyApi('/me/player/next', { method: 'POST' }));
+  return command(() => spotifyApi('/me/player/next', { method: 'POST' }), { skip: true });
 }
 
 export function previousTrack() {
-  return command(() => spotifyApi('/me/player/previous', { method: 'POST' }));
+  return command(() => spotifyApi('/me/player/previous', { method: 'POST' }), { skip: true });
 }

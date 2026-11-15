@@ -7,7 +7,7 @@ import { addDays, startOfWeek } from '../lib/dates';
 import { totalWorkouts } from '../lib/stats';
 import { toast } from '../lib/toast';
 import { useStart } from '../components/StartSheet';
-import { EmptyState, LogTabs, PageHeader, Spinner } from '../components/ui';
+import { EmptyState, LogTabs, PageHeader } from '../components/ui';
 import WorkoutRow from '../components/WorkoutRow';
 
 const PAGE = 50;
@@ -91,10 +91,8 @@ export default function History() {
           )}
         </For>
         <Show when={canLoadMore()}>
-          <button class="btn btn-block" onClick={loadOlder} disabled={loadingOlder()}>
-            <Show when={loadingOlder()} fallback="Load older">
-              <Spinner />
-            </Show>
+          <button type="button" class="btn btn-block" onClick={loadOlder} aria-busy={loadingOlder()}>
+            Load older
           </button>
         </Show>
       </Show>

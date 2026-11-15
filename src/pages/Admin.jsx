@@ -63,9 +63,10 @@ export default function Admin() {
                 autocomplete="off"
                 autocapitalize="none"
                 value={email()}
+                readOnly={busy()}
                 onInput={(e) => setEmail(e.currentTarget.value)}
               />
-              <button type="submit" class="btn btn-signal" disabled={busy() || !email().trim()}>
+              <button type="submit" class="btn btn-signal" aria-busy={busy()} disabled={busy() || !email().trim()}>
                 <UserPlus size={18} /> Add
               </button>
             </form>
@@ -103,6 +104,7 @@ export default function Admin() {
                       </span>
                     </span>
                     <button
+                      type="button"
                       class="btn btn-icon -mr-3 text-muted"
                       aria-label={`Remove ${entry.email}`}
                       onClick={() => setRemoving(entry.email)}
@@ -113,7 +115,12 @@ export default function Admin() {
                 )}
               </For>
             </ul>
-            <button class="btn btn-quiet btn-block mt-4 text-muted" onClick={refetch}>
+            <button
+              type="button"
+              class="btn btn-quiet btn-block mt-4 text-muted"
+              aria-busy={access.loading}
+              onClick={refetch}
+            >
               Refresh
             </button>
           </Show>

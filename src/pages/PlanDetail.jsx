@@ -15,7 +15,7 @@ export default function PlanDetail() {
   const params = useParams();
   const navigate = useNavigate();
   const { startDay } = useStart();
-  const [busy, setBusy] = createSignal(false);
+  const [busy, setBusy] = createSignal(null); // which action is waiting on the server
   const [confirmDelete, setConfirmDelete] = createSignal(false);
 
   const id = () => Number(params.id);
@@ -31,8 +31,8 @@ export default function PlanDetail() {
   const isActive = () => summary.data()?.active_plan?.id === id() || plan()?.is_active;
   const nextId = () => (isActive() ? summary.data()?.next_plan_day_id : null);
 
-  async function run(action, message) {
-    setBusy(true);
+  async function run(key, action, message) {
+    setBusy(key);
     try {
       await action();
       if (message) toast(message, 'success');
@@ -41,12 +41,12 @@ export default function PlanDetail() {
       toast(err.message, 'error');
       return false;
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   const removePlan = async () => {
-    if (await run(() => deletePlan(id()), 'Plan deleted')) navigate('/plans', { replace: true });
+    if (await run('delete', () => deletePlan(id()), 'Plan deleted')) navigate('/plans', { replace: true });
   };
 
   const start = (day) => {
@@ -85,8 +85,9 @@ export default function PlanDetail() {
           fallback={
             <button
               class="btn btn-lg btn-signal btn-block"
-              disabled={busy()}
-              onClick={() => run(() => activatePlan(id()), 'Now following this plan')}
+              aria-busy={busy() === 'follow'}
+              disabled={!!busy()}
+              onClick={() => run('follow', () => activatePlan(id()), 'Now following this plan')}
             >
               Follow this plan
             </button>
@@ -96,9 +97,10 @@ export default function PlanDetail() {
             <Check size={20} class="text-signal" strokeWidth={3} />
             <span class="display flex-1 text-xl">Following</span>
             <button
-              class="btn btn-sm border-paper/40 text-paper"
-              disabled={busy()}
-              onClick={() => run(deactivatePlan, 'Stopped following')}
+              class="btn btn-sm border-paper/40 text-paper [--busy-fg:var(--paper)]"
+              aria-busy={busy() === 'stop'}
+              disabled={!!busy()}
+              onClick={() => run('stop', deactivatePlan, 'Stopped following')}
             >
               Stop
             </button>

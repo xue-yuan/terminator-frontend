@@ -1,7 +1,8 @@
-import { createEffect, on, Show } from 'solid-js';
+import { createEffect, For, on, Show } from 'solid-js';
 import { A, useLocation } from '@solidjs/router';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { Play } from 'lucide-solid';
+import { fetching } from '../lib/data';
 import { formatClock } from '../lib/format';
 import { enter } from '../lib/motion';
 import { useNow } from '../lib/now';
@@ -25,6 +26,9 @@ export default function AppLayout(props) {
   );
   return (
     <div class="min-h-dvh">
+      <Show when={fetching()}>
+        <div class="loading-bar" role="progressbar" aria-label="Loading" />
+      </Show>
       <main ref={main} class="mx-auto max-w-xl px-5" classList={{ 'pb-36': !fullscreen() }}>
         {props.children}
       </main>
@@ -36,22 +40,25 @@ export default function AppLayout(props) {
   );
 }
 
-const ACTIVE_TAB = '!text-ink after:absolute after:top-0 after:h-[3px] after:w-8 after:bg-signal';
+// Bottom nav, left to right; null is the Start button in the middle. `match`
+// says which pages light a tab up (Log covers workouts and exercises too).
+const TABS = [
+  { href: '/', label: 'Today', match: /^\/$/ },
+  { href: '/history', label: 'Log', match: /^\/(history|exercises|workouts)(\/|$)/ },
+  null,
+  { href: '/plans', label: 'Plans', match: /^\/plans(\/|$)/ },
+  { href: '/profile', label: 'You', match: /^\/(profile|body|admin)(\/|$)/ },
+];
 
 function Tab(props) {
-  const location = useLocation();
-  // `match` lets one tab cover several sections (Log: workouts and exercises);
-  // other tabs rely on the router's own active matching.
-  const active = () => props.match?.test(location.pathname);
   return (
     <A
-      href={props.href}
-      end={props.end}
-      class="relative flex h-14 flex-col items-center justify-center font-display text-[0.8rem] font-bold tracking-[0.12em] text-muted uppercase"
-      classList={{ [ACTIVE_TAB]: !!active() }}
-      activeClass={ACTIVE_TAB}
+      href={props.tab.href}
+      class="relative flex h-14 flex-col items-center justify-center font-display text-[0.8rem] font-bold tracking-[0.12em] text-muted uppercase transition-[color,transform] duration-150 active:scale-95"
+      classList={{ '!text-ink': props.active }}
+      aria-current={props.active ? 'page' : undefined}
     >
-      {props.label}
+      {props.tab.label}
       <Show when={props.dot}>
         <span class="absolute top-3 right-[calc(50%-1.6rem)] h-1.5 w-1.5 bg-warn" aria-label="Unsynced changes" />
       </Show>
@@ -60,44 +67,55 @@ function Tab(props) {
 }
 
 function BottomNav() {
+  const location = useLocation();
   const { openSheet } = useStart();
   const now = useNow();
   const live = () => (draft() ? (now(), formatClock(elapsedSeconds())) : null);
+  const current = () => TABS.findIndex((tab) => tab?.match.test(location.pathname));
 
   return (
     <nav class="rule fixed inset-x-0 bottom-0 z-40 border-t-2 bg-paper pb-safe" aria-label="Main">
-      <div class="mx-auto grid max-w-xl grid-cols-5 items-end px-1">
-        <Tab href="/" end label="Today" />
-        <Tab
-          href="/history"
-          label="Log"
-          match={/^\/(history|exercises|workouts)(\/|$)/}
-          dot={pendingEntries().length > 0}
-        />
-        <div class="flex justify-center">
-          <button
-            class="-mt-6 flex h-[4.5rem] w-[4.5rem] flex-col items-center justify-center border-2 border-ink bg-signal text-on-signal shadow-[4px_4px_0_var(--ink)] transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_var(--ink)]"
-            aria-label={draft() ? 'Resume workout' : 'Start workout'}
-            onClick={openSheet}
-          >
-            <Show
-              when={live()}
-              fallback={
-                <>
-                  <Play size={22} fill="currentColor" />
-                  <span class="mt-0.5 font-display text-[0.8rem] font-extrabold tracking-[0.1em] uppercase">Start</span>
-                </>
-              }
-            >
-              <span class="flex items-center gap-1 font-display text-[0.7rem] font-extrabold tracking-[0.1em] uppercase">
-                <span class="h-1.5 w-1.5 animate-pulse bg-on-signal" /> Live
-              </span>
-              <span class="font-display text-lg leading-tight font-extrabold">{live()}</span>
-            </Show>
-          </button>
-        </div>
-        <Tab href="/plans" label="Plans" />
-        <Tab href="/profile" label="You" match={/^\/(profile|body|admin)(\/|$)/} />
+      <div class="relative mx-auto grid max-w-xl grid-cols-5 items-end px-1">
+        {/* One marker that slides to the current tab. */}
+        <span
+          aria-hidden="true"
+          class="pointer-events-none absolute top-0 left-1 flex w-[calc((100%-0.5rem)/5)] justify-center transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.2,0.9,0.25,1)]"
+          style={{ transform: `translateX(${Math.max(current(), 0) * 100}%)`, opacity: current() < 0 ? 0 : 1 }}
+        >
+          <span class="h-[3px] w-8 bg-signal" />
+        </span>
+        <For each={TABS}>
+          {(tab, i) =>
+            tab ? (
+              <Tab tab={tab} active={current() === i()} dot={tab.href === '/history' && pendingEntries().length > 0} />
+            ) : (
+              <div class="flex justify-center">
+                <button
+                  class="-mt-6 flex h-[4.5rem] w-[4.5rem] flex-col items-center justify-center border-2 border-ink bg-signal text-on-signal shadow-[4px_4px_0_var(--ink)] transition-[transform,box-shadow] duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_var(--ink)]"
+                  aria-label={draft() ? 'Resume workout' : 'Start workout'}
+                  onClick={openSheet}
+                >
+                  <Show
+                    when={live()}
+                    fallback={
+                      <>
+                        <Play size={22} fill="currentColor" />
+                        <span class="mt-0.5 font-display text-[0.8rem] font-extrabold tracking-[0.1em] uppercase">
+                          Start
+                        </span>
+                      </>
+                    }
+                  >
+                    <span class="flex items-center gap-1 font-display text-[0.7rem] font-extrabold tracking-[0.1em] uppercase">
+                      <span class="h-1.5 w-1.5 animate-pulse bg-on-signal" /> Live
+                    </span>
+                    <span class="font-display text-lg leading-tight font-extrabold">{live()}</span>
+                  </Show>
+                </button>
+              </div>
+            )
+          }
+        </For>
       </div>
     </nav>
   );

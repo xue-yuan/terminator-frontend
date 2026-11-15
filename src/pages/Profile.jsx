@@ -63,10 +63,41 @@ export default function Profile() {
   const [confirmSignOut, setConfirmSignOut] = createSignal(false);
   const unsynced = () => pendingEntries().length + failedEntries().length;
 
+  const [spotifyBusy, setSpotifyBusy] = createSignal(false);
+  async function connect() {
+    setSpotifyBusy(true);
+    try {
+      await connectSpotify(); // leaves for Spotify's sign-in; keep the spinner until the page goes
+      setTimeout(() => setSpotifyBusy(false), 5000);
+    } catch (err) {
+      toast(err.message, 'error');
+      setSpotifyBusy(false);
+    }
+  }
+  async function disconnect() {
+    setSpotifyBusy(true);
+    try {
+      await disconnectSpotify();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setSpotifyBusy(false);
+    }
+  }
+
+  // Upload, then fetch: the icon keeps turning through both.
+  const [refreshing, setRefreshing] = createSignal(false);
   const syncNow = async () => {
-    await flush();
-    await refreshAll({ force: true });
+    if (busySyncing()) return;
+    setRefreshing(true);
+    try {
+      await flush();
+      await refreshAll({ force: true });
+    } finally {
+      setRefreshing(false);
+    }
   };
+  const busySyncing = () => refreshing() || syncing();
 
   return (
     <>
@@ -94,8 +125,8 @@ export default function Profile() {
               <Show when={lastSyncedAt()}> Last upload {timeAgo(lastSyncedAt())}.</Show>
             </p>
           </div>
-          <button class="btn btn-sm" onClick={syncNow} disabled={!online() || syncing()}>
-            <RefreshCw size={14} classList={{ 'animate-spin': syncing() }} /> Sync
+          <button type="button" class="btn btn-sm" onClick={syncNow} disabled={!online()}>
+            <RefreshCw size={14} classList={{ 'animate-spin': busySyncing() }} /> Sync
           </button>
         </div>
         <Show when={failedEntries().length}>
@@ -224,18 +255,22 @@ export default function Profile() {
               when={spotifyStatus().connected}
               fallback={
                 <button
+                  type="button"
                   class="btn btn-sm btn-signal"
+                  aria-busy={spotifyBusy()}
                   disabled={!online()}
-                  onClick={() => connectSpotify().catch((err) => toast(err.message, 'error'))}
+                  onClick={connect}
                 >
                   Connect
                 </button>
               }
             >
               <button
+                type="button"
                 class="btn btn-sm"
+                aria-busy={spotifyBusy()}
                 disabled={!online()}
-                onClick={() => disconnectSpotify().catch((err) => toast(err.message, 'error'))}
+                onClick={disconnect}
               >
                 Disconnect
               </button>

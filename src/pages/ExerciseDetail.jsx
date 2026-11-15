@@ -502,10 +502,13 @@ function EditSheet(props) {
         <Show when={mergeTarget() && !online()}>
           <p class="text-sm text-warn">Merging needs a connection.</p>
         </Show>
-        <button type="submit" class="btn btn-lg btn-signal btn-block" disabled={busy() || (mergeTarget() && !online())}>
-          <Show when={busy()} fallback={mergeTarget() ? `Merge into ${mergeTarget().name}` : 'Save'}>
-            <Spinner class="h-4 w-4" />
-          </Show>
+        <button
+          type="submit"
+          class="btn btn-lg btn-signal btn-block"
+          aria-busy={busy()}
+          disabled={mergeTarget() && !online()}
+        >
+          {mergeTarget() ? `Merge into ${mergeTarget().name}` : 'Save'}
         </button>
         <Show when={!mergeTarget() && props.exercise.times_performed === 0}>
           <button

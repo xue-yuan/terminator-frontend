@@ -1,5 +1,4 @@
-import { createEffect, For, Show } from 'solid-js';
-import { reducedMotion } from '../lib/motion';
+import { createEffect, createSignal, For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { A, useNavigate } from '@solidjs/router';
 import { ArrowLeft, Check, CloudOff, CloudUpload, Info, RefreshCw, TriangleAlert, Trophy, X } from 'lucide-solid';
@@ -219,13 +218,10 @@ export function Sheet(props) {
     } else if (dialog.open && !('closing' in dialog.dataset)) {
       // Let it slide away (index.css) before it really closes.
       dialog.dataset.closing = '';
-      closing = setTimeout(
-        () => {
-          delete dialog.dataset.closing;
-          dialog.close();
-        },
-        reducedMotion() ? 0 : 150,
-      );
+      closing = setTimeout(() => {
+        delete dialog.dataset.closing;
+        dialog.close();
+      }, 200); // matches sheet-down in index.css
     }
   });
   return (
@@ -236,7 +232,9 @@ export function Sheet(props) {
       // Only user dismissals (Esc) should report back; a programmatic close
       // (open -> false) must not clobber state, e.g. when switching sheets.
       onClose={() => props.open && props.onClose()}
-      onClick={(e) => e.target === dialog && props.onClose()}
+      // While `locked` (waiting on the server) Esc and the backdrop don't dismiss it.
+      onCancel={(e) => props.locked && e.preventDefault()}
+      onClick={(e) => e.target === dialog && !props.locked && props.onClose()}
     >
       <div class="px-5 pt-4" style={{ 'padding-bottom': 'calc(env(safe-area-inset-bottom) + 1.25rem)' }}>
         <div class="mb-3 flex items-start gap-2">
@@ -244,7 +242,13 @@ export function Sheet(props) {
           <h2 class="display flex-1 pt-1 text-[1.75rem] outline-none" tabindex="-1" autofocus>
             {props.title}
           </h2>
-          <button type="button" class="btn btn-icon -mr-2" aria-label="Close" onClick={() => props.onClose()}>
+          <button
+            type="button"
+            class="btn btn-icon -mr-2"
+            aria-label="Close"
+            disabled={props.locked}
+            onClick={() => props.onClose()}
+          >
             <X size={22} />
           </button>
         </div>
@@ -254,26 +258,41 @@ export function Sheet(props) {
   );
 }
 
+/**
+ * Confirm or cancel. When onConfirm returns a promise (it waits on the server),
+ * the sheet stays up with a spinner on the button until it settles.
+ */
 export function ConfirmSheet(props) {
+  const [busy, setBusy] = createSignal(false);
+  async function confirm() {
+    // Confirm first: the handler may need the state that opened the sheet,
+    // which closing it can clear.
+    const pending = props.onConfirm();
+    if (pending?.then) {
+      setBusy(true);
+      try {
+        await pending;
+      } finally {
+        setBusy(false);
+      }
+    }
+    props.onClose();
+  }
   return (
-    <Sheet open={props.open} onClose={props.onClose} title={props.title}>
+    <Sheet open={props.open} onClose={props.onClose} title={props.title} locked={busy()}>
       <Show when={props.children}>
         <div class="mb-5 text-muted">{props.children}</div>
       </Show>
       <div class="grid gap-2">
         <button
           type="button"
-          class={`btn btn-lg btn-block ${props.danger ? 'border-bad bg-bad text-white' : 'btn-signal'}`}
-          onClick={() => {
-            // Confirm first: the handler may need the state that opened the sheet,
-            // which closing it can clear.
-            props.onConfirm();
-            props.onClose();
-          }}
+          class={`btn btn-lg btn-block ${props.danger ? 'border-bad bg-bad text-white [--busy-fg:white]' : 'btn-signal'}`}
+          aria-busy={busy()}
+          onClick={confirm}
         >
           {props.confirmLabel ?? 'Confirm'}
         </button>
-        <button type="button" class="btn btn-quiet btn-block" onClick={() => props.onClose()}>
+        <button type="button" class="btn btn-quiet btn-block" disabled={busy()} onClick={() => props.onClose()}>
           Cancel
         </button>
       </div>

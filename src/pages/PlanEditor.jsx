@@ -166,10 +166,8 @@ export default function PlanEditor() {
       </button>
       <p class="display flex-1 truncate text-2xl">{editingId() ? 'Edit plan' : 'New plan'}</p>
       <Show when={!picking()}>
-        <button class="btn btn-sm btn-signal" onClick={save} disabled={saving() || !online()}>
-          <Show when={saving()} fallback="Save">
-            <Spinner class="h-4 w-4" />
-          </Show>
+        <button type="button" class="btn btn-sm btn-signal" onClick={save} aria-busy={saving()} disabled={!online()}>
+          Save
         </button>
       </Show>
     </div>
