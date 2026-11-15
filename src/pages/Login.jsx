@@ -115,7 +115,8 @@ export default function Login() {
 
       <div class="grid gap-3">
         <Show when={config()?.google_client_id}>
-          <div ref={googleButton} class="flex min-h-11 justify-center" />
+          {/* Same color scheme as Google's (light) iframe, or the browser paints it an opaque white box in dark mode. */}
+          <div ref={googleButton} class="flex min-h-11 justify-center" style={{ 'color-scheme': 'light' }} />
         </Show>
         <Show when={config()?.dev_login_enabled}>
           <button
