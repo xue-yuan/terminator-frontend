@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
-import { ChevronRight, CloudOff, Download, LogOut, Music, RefreshCw, Scale, Share } from 'lucide-solid';
-import { currentUser, signOut } from '../lib/auth';
+import { ChevronRight, CloudOff, Download, LogOut, Music, RefreshCw, Scale, Share, ShieldCheck } from 'lucide-solid';
+import { currentUser, isAdmin, signOut } from '../lib/auth';
 import { bodyWeightList, refreshAll } from '../lib/data';
 import { formatDay, formatWeight, timeAgo } from '../lib/format';
 import { canPromptInstall, isIOS, isStandalone, promptInstall } from '../lib/install';
@@ -123,6 +123,19 @@ export default function Profile() {
           </div>
         </Show>
       </Group>
+
+      <Show when={isAdmin()}>
+        <Group title="Admin">
+          <A href="/admin" class="rule flex items-center gap-3 border-b py-4 active:bg-sunk">
+            <ShieldCheck size={20} class="shrink-0 text-muted" />
+            <span class="min-w-0 flex-1">
+              <span class="block font-semibold">Access</span>
+              <span class="block text-sm text-muted">Choose who can use the app</span>
+            </span>
+            <ChevronRight size={18} class="shrink-0 text-muted" />
+          </A>
+        </Group>
+      </Show>
 
       <Group title="Body">
         <A href="/body" class="rule flex items-center gap-3 border-b py-4 active:bg-sunk">

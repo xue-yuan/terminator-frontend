@@ -1,6 +1,7 @@
 import { createMemo, createRoot, createSignal } from 'solid-js';
 import { api, OfflineError } from './api';
 import { importBatches } from './backup';
+import { updateUser } from './auth';
 import { refreshSpotifyStatus } from './spotify';
 import { CATALOG, catalogEntry, exerciseKey } from './exercises';
 import { clearServerCaches, deleteRecords, initialRecords, load, putRecords, save } from './storage';
@@ -110,6 +111,9 @@ export function refreshAll({ force = false } = {}) {
     exercises.refresh(),
     bodyWeights.refresh(),
     refreshSpotifyStatus(),
+    api('/users/me')
+      .then(updateUser)
+      .catch(() => {}),
   ]);
 }
 
@@ -499,6 +503,13 @@ export async function importBackup(backup, onProgress = () => {}) {
   await refreshAll({ force: true });
   return sum;
 }
+
+// ---- access (admins only, needs a connection) -------------------------------
+
+/** { restricted, admins: [email], allowed: [{ email, added_at, signed_up }] } */
+export const readAccess = () => api('/admin/access');
+export const allowEmail = (email) => api('/admin/access', { method: 'POST', body: { email } });
+export const removeEmail = (email) => api(`/admin/access/${encodeURIComponent(email)}`, { method: 'DELETE' });
 
 // ---- plan mutations (need a connection) -------------------------------------
 

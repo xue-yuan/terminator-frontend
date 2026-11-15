@@ -10,10 +10,17 @@ const [sessionExpired, setSessionExpired] = createSignal(load('sessionExpired', 
 export { auth, sessionExpired };
 export const isSignedIn = () => auth() != null;
 export const currentUser = () => auth()?.user ?? null;
+/** In ADMIN_EMAILS on the server: may manage who uses the app. */
+export const isAdmin = () => !!auth()?.user?.is_admin;
 
 function persist(value) {
   setAuth(value);
   save('auth', value);
+}
+
+/** Keep the stored profile (name, admin) in step with the server. */
+export function updateUser(user) {
+  if (auth()) persist({ ...auth(), user });
 }
 
 export function setTokens({ access_token, refresh_token }) {

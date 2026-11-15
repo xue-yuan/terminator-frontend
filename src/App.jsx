@@ -3,6 +3,7 @@ import { Navigate, Route, Router } from '@solidjs/router';
 import { isSignedIn } from './lib/auth';
 import AppLayout, { UpdatePrompt } from './components/Layout';
 import { Toaster } from './components/ui';
+import Admin from './pages/Admin';
 import Body from './pages/Body';
 import ExerciseDetail from './pages/ExerciseDetail';
 import Exercises from './pages/Exercises';
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/plans/:id/edit" component={PlanEditor} />
         <Route path="/profile" component={Profile} />
         <Route path="/body" component={Body} />
+        <Route path="/admin" component={Admin} />
         <Route path="*" component={() => <Navigate href="/" />} />
       </Route>
     </Router>

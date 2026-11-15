@@ -87,7 +87,7 @@ function BottomNav() {
           </button>
         </div>
         <Tab href="/plans" label="Plans" />
-        <Tab href="/profile" label="You" match={/^\/(profile|body)(\/|$)/} />
+        <Tab href="/profile" label="You" match={/^\/(profile|body|admin)(\/|$)/} />
       </div>
     </nav>
   );
