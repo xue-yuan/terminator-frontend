@@ -23,3 +23,5 @@ export const [weightStepLb, setWeightStepLb] = pref('weightStepLb', 5);
 
 /** Increment of the − / + weight buttons for a unit. */
 export const weightStep = (u) => (u === 'lb' ? weightStepLb() : weightStepKg());
+/** A short chime when rest is over (iPhones can't vibrate from a web page). */
+export const [restSound, setRestSound] = pref('restSound', true);

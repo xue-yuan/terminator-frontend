@@ -15,7 +15,7 @@ import {
   saveExercise,
 } from '../lib/data';
 import { catalogEntry, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
-import { formatClock, formatDay, formatNumber, formatWeight, plural } from '../lib/format';
+import { formatClock, formatDay, formatLoad, formatNumber, formatWeight, plural } from '../lib/format';
 import { online } from '../lib/network';
 import { restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';
 import { chartPoints, estimate1RM, METRICS, metricsFor, normalizeSessions, records } from '../lib/progress';
@@ -243,7 +243,7 @@ export default function ExerciseDetail() {
                 <span class="min-w-0 flex-1">
                   <span class="t-foot block text-label-2">{formatDay(s.performed_at)}</span>
                   <span class="num block truncate font-medium">
-                    {s.sets.map((set) => `${formatWeight(set.original.weight)}×${set.reps}`).join(', ')}
+                    {s.sets.map((set) => `${formatLoad(set.original.weight)}×${set.reps}`).join(', ')}
                     <Show when={s.sets.some((set) => set.original.weight > 0)}>
                       <span class="ml-1 text-[14px] font-normal text-label-2">{s.sets[0].original.unit}</span>
                     </Show>

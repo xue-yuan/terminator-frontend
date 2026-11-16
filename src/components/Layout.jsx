@@ -1,12 +1,13 @@
-import { createEffect, For, on, onMount, Show } from 'solid-js';
+import { createEffect, For, on, onCleanup, onMount, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { A, useLocation } from '@solidjs/router';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { ChevronUp, CircleUser, ClipboardList, History, House, Plus, Trash2 } from 'lucide-solid';
 import { firstLoad } from '../lib/data';
 import { formatClock, plural } from '../lib/format';
-import { pageIn } from '../lib/motion';
-import { historyDepth, isTabRoot, markStart } from '../lib/nav';
+import { pageIn, slideAwayRight } from '../lib/motion';
+import { backTarget, historyDepth, isTabRoot, markStart, useBack } from '../lib/nav';
+import { isIOS, isStandalone } from '../lib/install';
 import { useNow } from '../lib/now';
 import { restProgress, restRemaining } from '../lib/rest';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
@@ -19,6 +20,13 @@ export default function AppLayout(props) {
   const location = useLocation();
   const fullscreen = () => FULLSCREEN.test(location.pathname);
   let main;
+  const back = useBack();
+  // Safari's own tabs already go back with this gesture; the app on the home screen doesn't.
+  const edgeBack = createEdgeBack(
+    () => main,
+    () => !!backTarget() && !fullscreen() && !(isIOS() && !isStandalone()),
+    () => back(backTarget()),
+  );
   let depth;
   onMount(() => {
     markStart();
@@ -41,7 +49,7 @@ export default function AppLayout(props) {
     ),
   );
   return (
-    <div class="min-h-dvh" data-layout>
+    <div class="min-h-dvh" data-layout ref={edgeBack}>
       <Show when={firstLoad()}>
         <div class="loading-bar" role="progressbar" aria-label="Loading" />
       </Show>
@@ -53,7 +61,7 @@ export default function AppLayout(props) {
         {props.children}
       </main>
       <Show when={!fullscreen()}>
-        <div class="fixed inset-x-0 bottom-0 z-40">
+        <div class="fixed inset-x-0 bottom-0 z-40" data-bottom-bar>
           <Show when={draft()}>
             <MiniPlayer />
           </Show>
@@ -216,4 +224,71 @@ export function UpdatePrompt() {
       </div>
     </Show>
   );
+}
+
+/**
+ * Swipe from the left edge to go back, like iOS: the page follows the finger,
+ * and letting go past a third of the way (or with a flick) goes back while the
+ * page slides off to the right. Returns a ref callback for the element to listen on.
+ */
+function createEdgeBack(getMain, enabled, goBack) {
+  const EDGE = 24;
+  let drag = null;
+  const place = (dx, animate) => {
+    const main = getMain();
+    main.style.transition = animate ? 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 320ms' : 'none';
+    main.style.transform = dx ? `translateX(${dx}px)` : '';
+    main.style.boxShadow = dx ? '-12px 0 32px rgb(0 0 0 / 0.14)' : '';
+  };
+  const onStart = (e) => {
+    const t = e.touches[0];
+    drag =
+      e.touches.length === 1 && t.clientX <= EDGE && enabled() && !document.querySelector('dialog[open]')
+        ? { x: t.clientX, y: t.clientY, active: false }
+        : null;
+  };
+  const onMove = (e) => {
+    if (!drag) return;
+    const t = e.touches[0];
+    const dx = t.clientX - drag.x;
+    const dy = t.clientY - drag.y;
+    if (!drag.active) {
+      if (Math.hypot(dx, dy) < 8) return;
+      if (dx <= 0 || Math.abs(dy) > dx) {
+        drag = null; // scrolling, not going back
+        return;
+      }
+      Object.assign(drag, { active: true, lastX: t.clientX, lastT: e.timeStamp, v: 0, dx: 0 });
+    }
+    e.preventDefault();
+    drag.dx = Math.max(0, dx);
+    drag.v = (t.clientX - drag.lastX) / Math.max(1, e.timeStamp - drag.lastT);
+    drag.lastX = t.clientX;
+    drag.lastT = e.timeStamp;
+    place(drag.dx, false);
+  };
+  const onEnd = () => {
+    const d = drag;
+    drag = null;
+    if (!d?.active) return;
+    if (d.dx > window.innerWidth / 3 || (d.dx > 30 && d.v > 0.4)) {
+      slideAwayRight({ dragged: d.dx }); // a copy leaves from where the finger let go
+      place(0, false);
+      goBack();
+    } else {
+      place(0, true);
+    }
+  };
+  return (el) => {
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    onCleanup(() => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    });
+  };
 }

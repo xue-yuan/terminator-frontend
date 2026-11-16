@@ -40,7 +40,16 @@ describe('formatting', () => {
 
   it('shows the unit only when something was weighted', () => {
     expect(describeSets([{ weight: 60, reps: 8 }], 'kg')).toBe('60×8 kg');
-    expect(describeSets([{ weight: 0, reps: 12 }], 'kg')).toBe('0×12');
+    expect(describeSets([{ weight: 0, reps: 12 }], 'kg')).toBe('BW×12');
+    expect(
+      describeSets(
+        [
+          { weight: 0, reps: 12 },
+          { weight: 10, reps: 8 },
+        ],
+        'kg',
+      ),
+    ).toBe('BW×12, 10×8 kg');
   });
 });
 

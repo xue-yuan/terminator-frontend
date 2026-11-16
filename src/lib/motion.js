@@ -40,7 +40,7 @@ export function pageIn(el, kind) {
 // minimised a copy of the workout slides down over the page you return to.
 
 /** A still copy of what's on screen now, in a fixed box at `z`. */
-function snapshot(z) {
+function snapshot(z, { keepBars = true } = {}) {
   const root = document.querySelector('[data-layout]');
   if (!root) return null;
   const box = document.createElement('div');
@@ -50,6 +50,8 @@ function snapshot(z) {
   box.style.cssText = `position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:${z};transform:translateZ(0)`;
   const copy = root.cloneNode(true);
   copy.querySelectorAll('dialog').forEach((d) => d.remove());
+  // Going back sideways, the tab bar stays put: only the page leaves.
+  if (!keepBars) copy.querySelectorAll('[data-bottom-bar], .loading-bar').forEach((el) => el.remove());
   const fields = root.querySelectorAll('input, textarea');
   copy.querySelectorAll('input, textarea').forEach((f, i) => f.setAttribute('value', fields[i]?.value ?? ''));
   copy.style.cssText = `position:absolute;left:0;right:0;top:${-window.scrollY}px;background:var(--bg)`;
@@ -78,15 +80,41 @@ export function riseIn(el) {
   return anim.finished.catch(() => {}).finally(releaseBackdrop);
 }
 
-/** Minimising: call right before navigating away; a copy of the workout slides down over the page underneath. */
-export function slideAway() {
+/**
+ * Minimising: call right before navigating away; a copy of the workout slides
+ * down over the page underneath. `dragged` (px) is how far a finger already
+ * pulled it down: the slide carries on from there, quicker the less is left.
+ */
+export function slideAway({ dragged = 0 } = {}) {
   const box = snapshot(55);
   if (!box) return;
+  const left = Math.max(0, 1 - dragged / window.innerHeight);
   const to = reducedMotion() ? { opacity: 0 } : { transform: 'translateY(100%)' };
   box
     .animate([{ opacity: 1, transform: 'translateZ(0)' }, to], {
-      duration: reducedMotion() ? 180 : 380,
-      easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
+      // Calm enough to follow with the eye: it eases in, glides, and settles.
+      duration: reducedMotion() ? 180 : Math.round(260 + 300 * left),
+      easing: dragged ? 'cubic-bezier(0.2, 0.6, 0.35, 1)' : 'cubic-bezier(0.45, 0, 0.2, 1)',
+      fill: 'forwards',
+    })
+    .finished.catch(() => {})
+    .finally(() => box.remove());
+}
+
+/**
+ * Swiping back from the left edge: call right before navigating back; a copy of
+ * the page slides off to the right (from where the finger let go) while the
+ * page you return to comes in underneath.
+ */
+export function slideAwayRight({ dragged = 0 } = {}) {
+  const box = snapshot(45, { keepBars: false });
+  if (!box) return;
+  const left = Math.max(0, 1 - dragged / window.innerWidth);
+  const to = reducedMotion() ? { opacity: 0 } : { transform: 'translateX(100%)' };
+  box
+    .animate([{ opacity: 1, transform: 'translateZ(0)' }, to], {
+      duration: reducedMotion() ? 150 : Math.round(200 + 220 * left),
+      easing: 'cubic-bezier(0.2, 0.6, 0.35, 1)',
       fill: 'forwards',
     })
     .finished.catch(() => {})

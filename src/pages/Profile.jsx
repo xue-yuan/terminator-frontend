@@ -19,8 +19,10 @@ import { online } from '../lib/network';
 import {
   keepAwake,
   restSeconds,
+  restSound,
   setKeepAwake,
   setRestSeconds,
+  setRestSound,
   setUnit,
   setWeightStepKg,
   setWeightStepLb,
@@ -196,6 +198,15 @@ export default function Profile() {
             onChange={setRestSeconds}
           />
         </Choice>
+        <div class="row">
+          <span class="flex-1">
+            Sound when rest is over
+            <span class="t-foot block text-label-2">
+              A short chime over your music (iPhones can't vibrate from the web)
+            </span>
+          </span>
+          <Switch label="Sound when rest is over" checked={restSound()} onChange={setRestSound} />
+        </div>
         <Choice label="Default unit" hint="New exercises and totals">
           <Segmented
             label="Default unit"

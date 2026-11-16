@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, on, onMount, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
 import {
   ArrowDown,
@@ -23,6 +23,7 @@ import {
   describeSets,
   formatClock,
   formatDuration,
+  formatLoad,
   formatNumber,
   formatWeight,
   isWarmup,
@@ -34,7 +35,8 @@ import {
 import { enter, riseIn, slideAway } from '../lib/motion';
 import { useBack } from '../lib/nav';
 import { useNow } from '../lib/now';
-import { unit as displayUnit, keepAwake } from '../lib/prefs';
+import { unit as displayUnit, keepAwake, restSound } from '../lib/prefs';
+import { primeSound } from '../lib/sound';
 import { restProgress, restRemaining } from '../lib/rest';
 import { convert, UNITS } from '../lib/units';
 import {
@@ -87,6 +89,74 @@ import { spotifyStatus } from '../lib/spotify';
 
 const buzz = () => navigator.vibrate?.(8);
 
+/**
+ * Pull the workout down to minimise it, like an iOS sheet: a downward drag that
+ * starts on the header, or anywhere while the page is scrolled to the top, moves
+ * the workout (and its bottom bars) with the finger, and so does one on the
+ * bottom bars (a [data-pull-handle] too: always in reach of the thumb); let go far or fast enough
+ * and it carries on down (onMinimize(px dragged)), otherwise it springs back.
+ * Touch events, not pointer events: the page must still scroll natively, and
+ * only a non-passive touchmove can take a vertical drag over from the browser.
+ */
+function createPullDown(elements, onMinimize) {
+  let drag = null;
+  const place = (dy, animate) => {
+    for (const el of elements()) {
+      if (!el) continue;
+      el.style.transition = animate ? 'transform 380ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none';
+      el.style.transform = dy ? `translateY(${dy}px)` : '';
+    }
+  };
+  const onStart = (e) => {
+    const t = e.touches[0];
+    drag =
+      e.touches.length === 1 && !e.target.closest('[role=listbox], textarea') // those scroll by themselves
+        ? { x: t.clientX, y: t.clientY, header: !!e.target.closest('[data-pull-handle]'), active: false }
+        : null;
+  };
+  const onMove = (e) => {
+    if (!drag) return;
+    const t = e.touches[0];
+    if (!drag.active) {
+      const dx = t.clientX - drag.x;
+      const dy = t.clientY - drag.y;
+      if (Math.hypot(dx, dy) < 10) return;
+      const down = dy > 0 && dy > Math.abs(dx) * 1.2;
+      if (!down || (!drag.header && window.scrollY > 0) || document.querySelector('dialog[open]')) {
+        drag = null; // a scroll or a sideways swipe: not ours
+        return;
+      }
+      Object.assign(drag, { active: true, y: t.clientY, lastY: t.clientY, lastT: e.timeStamp, v: 0, dy: 0 });
+    }
+    e.preventDefault();
+    drag.dy = Math.max(0, t.clientY - drag.y);
+    drag.v = (t.clientY - drag.lastY) / Math.max(1, e.timeStamp - drag.lastT);
+    drag.lastY = t.clientY;
+    drag.lastT = e.timeStamp;
+    place(drag.dy, false);
+  };
+  const onEnd = () => {
+    const d = drag;
+    drag = null;
+    if (!d?.active) return;
+    if (d.dy > 140 || (d.dy > 40 && d.v > 0.5)) onMinimize(d.dy);
+    else place(0, true);
+  };
+  /** Listen on `el` (a ref callback calls this); stops when its owner goes. */
+  return (el) => {
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    onCleanup(() => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    });
+  };
+}
+
 export default function Session() {
   const navigate = useNavigate();
   const back = useBack();
@@ -94,26 +164,30 @@ export default function Session() {
   // The bottom bars come in once the workout has risen into place.
   const [rising, setRising] = createSignal(true);
   let root;
+  let dock;
   let leaving = false;
   // No reaching for the phone to wake it between sets.
   useWakeLock(() => keepAwake() && !!draft());
 
-  // Opened via the "Start workout" app shortcut or a stale link: start fresh.
-  onMount(() => {
-    if (!draft()) startWorkout();
-    riseIn(root).then(() => setRising(false));
-  });
+  // Opened via the "Start workout" app shortcut or a stale link: start fresh
+  // (before the first render, so the workout is there to mount).
+  if (!draft()) startWorkout();
+  onMount(() => riseIn(root).then(() => setRising(false)));
   // The workout went away by itself (left open for hours, cleared elsewhere): go home.
   createEffect(() => {
     if (!draft() && !leaving) navigate('/', { replace: true });
   });
 
   /** Slide the workout down (into the bottom bar) and go where it ends up. */
-  const leave = (go) => {
+  const leave = (go, dragged = 0) => {
     leaving = true;
-    slideAway();
+    slideAway({ dragged });
     go();
   };
+  const minimize = (dragged) => leave(() => back('/'), dragged);
+  // Pull it down with the thumb, from anywhere once scrolled to the top (or by
+  // the header at any time), instead of reaching for the button up in the corner.
+  const pullDown = createPullDown(() => [root, dock], minimize);
 
   const finish = () => {
     const wasEdit = draft().mode === 'edit';
@@ -139,11 +213,17 @@ export default function Session() {
 
   return (
     <Show when={draft()}>
-      <div ref={root} class="relative z-[41] -mx-4 min-h-dvh bg-bg px-4">
+      <div
+        ref={(el) => {
+          root = el;
+          pullDown(el);
+        }}
+        class="relative z-[41] -mx-4 min-h-dvh bg-bg px-4"
+      >
         <SessionHeader
           onDetails={() => setSheet('details')}
           onFinish={() => setSheet('finish')}
-          onMinimize={() => leave(() => back('/'))}
+          onMinimize={() => minimize(0)}
         />
 
         <Show when={draft().exercises.length} fallback={<FirstExercise />}>
@@ -161,17 +241,25 @@ export default function Session() {
         </div>
 
         <div classList={{ 'h-32': !spotifyStatus().connected, 'h-48': spotifyStatus().connected }} />
-        {/* Music controls and the rest timer share the bottom edge. */}
-        <Show when={!rising()}>
-          <div class="fixed inset-x-0 bottom-0 z-40">
-            <SpotifyBar />
-            <RestBar />
-            <Show when={spotifyStatus().connected && restRemaining() == null}>
-              <div class="bar pb-safe" />
-            </Show>
-          </div>
-        </Show>
       </div>
+      {/* Music controls and the rest timer share the bottom edge. Outside the workout
+          above so a pull-down can move both together (a transform would detach it). */}
+      <Show when={!rising()}>
+        <div
+          ref={(el) => {
+            dock = el;
+            pullDown(el);
+          }}
+          data-pull-handle
+          class="fixed inset-x-0 bottom-0 z-[42]"
+        >
+          <SpotifyBar />
+          <RestBar />
+          <Show when={spotifyStatus().connected && restRemaining() == null}>
+            <div class="bar pb-safe" />
+          </Show>
+        </div>
+      </Show>
 
       <DetailsSheet open={sheet() === 'details'} onClose={() => setSheet(null)} onDiscard={discard} />
       <ExerciseSheet open={sheet() === 'exercise'} index={focusedIndex()} onClose={() => setSheet(null)} />
@@ -189,9 +277,12 @@ function SessionHeader(props) {
 
   return (
     <div
+      data-pull-handle
       class="bar sticky top-0 z-30 -mx-4 border-b-[0.5px] border-separator px-4"
-      style={{ 'padding-top': 'calc(env(safe-area-inset-top) + 0.25rem)' }}
+      style={{ 'padding-top': 'env(safe-area-inset-top)' }}
     >
+      {/* Says it can be pulled down, like a sheet. */}
+      <div class="grabber !mt-1.5" aria-hidden="true" />
       <div class="flex h-12 items-center gap-2">
         <div class="flex w-20 shrink-0">
           <button
@@ -576,6 +667,8 @@ function describeCopy({ weight, reps, unit }) {
 
 /** Log a set and celebrate a record. Returns false if it couldn't be logged. */
 function log(i, j) {
+  // This tap may start the rest timer: ready the chime that ends it (audio needs a tap).
+  if (restSound()) primeSound();
   const problem = logSet(i, j);
   if (problem) {
     toast(problem, 'error');
@@ -628,9 +721,9 @@ function SetRow(props) {
           classList={{ 'text-label-3': suggested(), 'text-[15px]': isWarmup(set()) }}
         >
           <span class="text-[20px] font-semibold" classList={{ '!text-[17px]': isWarmup(set()) }}>
-            {weight() ? formatWeight(parseNumber(weight())) : '–'}
+            {weight() === '' ? '–' : formatLoad(parseNumber(weight()))}
           </span>
-          <span class="mx-1 text-[15px] text-label-2">{props.ex.unit} ×</span>
+          <span class="mx-1 text-[15px] text-label-2">{parseNumber(weight()) === 0 ? '×' : `${props.ex.unit} ×`}</span>
           <span class="text-[20px] font-semibold" classList={{ '!text-[17px]': isWarmup(set()) }}>
             {reps() || '–'}
           </span>

@@ -59,6 +59,7 @@ export function SwipeRow(props) {
 
   const onPointerDown = (e) => {
     if (props.disabled || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (e.pointerType === 'touch' && e.clientX <= 24) return; // the left edge swipes back (components/Layout.jsx)
     // A swipe ends without a click, so whatever the last gesture set is stale by now.
     suppressClick = false;
     if (closeOpen && closeOpen !== close) {

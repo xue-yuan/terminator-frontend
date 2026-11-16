@@ -1,0 +1,51 @@
+// The chime that says rest is over. iPhones can't vibrate from a web page, so a
+// sound is the only nudge there (Android vibrates as well).
+//
+// Web Audio may only start from a tap, so primeSound() is called from the tap
+// that logs a set (and starts the rest); chime() then plays when time is up.
+
+let ctx = null;
+
+/** Ready the audio output. Call from inside a tap handler. */
+export function primeSound() {
+  try {
+    if (!ctx) {
+      const AudioContext = window.AudioContext ?? window.webkitAudioContext;
+      if (!AudioContext) return;
+      // A short sound over whatever music is playing (which may duck for it),
+      // not a takeover that would pause Spotify. Safari 16.4+.
+      if (navigator.audioSession) navigator.audioSession.type = 'transient';
+      ctx = new AudioContext();
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+    // iOS only unlocks output once something has played within the tap: one silent sample.
+    const source = ctx.createBufferSource();
+    source.buffer = ctx.createBuffer(1, 1, 22050);
+    source.connect(ctx.destination);
+    source.start(0);
+  } catch {
+    /* no sound then; the bar still turns orange */
+  }
+}
+
+/** Two soft rising notes. Returns false if audio isn't ready. */
+export function chime() {
+  if (!ctx || ctx.state !== 'running') return false;
+  const start = ctx.currentTime + 0.02;
+  for (const [frequency, at] of [
+    [880, 0],
+    [1318.5, 0.16],
+  ]) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, start + at);
+    gain.gain.exponentialRampToValueAtTime(0.4, start + at + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + at + 0.45);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start + at);
+    osc.stop(start + at + 0.5);
+  }
+  return true;
+}

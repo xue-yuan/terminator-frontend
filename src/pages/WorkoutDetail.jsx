@@ -6,9 +6,9 @@ import { deleteWorkout, itemExerciseId, saveWorkout, workoutList } from '../lib/
 import {
   formatDay,
   formatDuration,
+  formatLoad,
   formatNumber,
   formatTime,
-  formatWeight,
   isWarmup,
   plural,
   setCount,
@@ -148,8 +148,10 @@ export default function WorkoutDetail() {
                           {setLabel(item.sets, j())}
                         </span>
                         <span class="num flex-1" classList={{ 'text-label-2': isWarmup(set) }}>
-                          <span class="text-[19px] font-semibold">{formatWeight(set.weight)}</span>
-                          <span class="mx-1 text-[14px] text-label-2">{item.weight_unit ?? 'kg'} ×</span>
+                          <span class="text-[19px] font-semibold">{formatLoad(set.weight)}</span>
+                          <span class="mx-1 text-[14px] text-label-2">
+                            {set.weight > 0 ? `${item.weight_unit ?? 'kg'} ×` : '×'}
+                          </span>
                           <span class="text-[19px] font-semibold">{set.reps}</span>
                         </span>
                         <Show when={set.rpe != null}>

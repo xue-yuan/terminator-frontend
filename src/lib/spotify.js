@@ -85,21 +85,31 @@ export async function spotifyApi(path, { method = 'GET', body } = {}) {
 
 // ---- the player -------------------------------------------------------------------
 
-// null: not known yet; { idle: true }: nothing playing; else { playing, track: { name, artists, image }, device }
+// null: not known yet; { idle: true }: nothing playing; else
+// { playing, shuffle, repeat: 'off' | 'context' | 'track', context (uri | null), track, device }
 const [player, setPlayer] = createSignal(null);
 const [problem, setProblem] = createSignal(null);
 export { player, problem };
 
+/** A track as the app shows it: { uri, name, artists, image (a small one) }. */
+function trackOf(item) {
+  const images = item.album?.images ?? [];
+  return {
+    uri: item.uri,
+    name: item.name,
+    artists: item.artists ? item.artists.map((a) => a.name).join(', ') : (item.show?.publisher ?? ''), // podcasts have a show
+    image: (images.find((i) => i.width && i.width <= 300) ?? images.at(-1) ?? images[0])?.url ?? null,
+  };
+}
+
 function simplify(state) {
   if (!state?.item) return { idle: true };
-  const images = state.item.album?.images ?? [];
   return {
     playing: !!state.is_playing,
-    track: {
-      name: state.item.name,
-      artists: (state.item.artists ?? []).map((a) => a.name).join(', '),
-      image: (images.find((i) => i.width && i.width <= 300) ?? images.at(-1) ?? images[0])?.url ?? null,
-    },
+    shuffle: !!state.shuffle_state,
+    repeat: state.repeat_state ?? 'off',
+    context: state.context?.uri ?? null,
+    track: trackOf(state.item),
     device: state.device?.name ?? null,
   };
 }
@@ -154,7 +164,7 @@ async function startOnADevice() {
 const [skips, setSkips] = createSignal(0);
 export const changingTrack = () => skips() > 0;
 
-async function command(run, { optimistic, skip = false } = {}) {
+async function command(run, { optimistic, skip = false, refreshQueueAfter = false } = {}) {
   if (optimistic) setPlayer((p) => (p && !p.idle ? { ...p, ...optimistic } : p));
   if (skip) setSkips((n) => n + 1);
   try {
@@ -165,7 +175,7 @@ async function command(run, { optimistic, skip = false } = {}) {
   }
   // Spotify takes a moment to apply it.
   setTimeout(async () => {
-    await refreshPlayer();
+    await Promise.all([refreshPlayer(), (refreshQueueAfter || skip) && queue() ? refreshQueue() : null]);
     if (skip) setSkips((n) => n - 1);
   }, 400);
 }
@@ -195,4 +205,55 @@ export function nextTrack() {
 
 export function previousTrack() {
   return command(() => spotifyApi('/me/player/previous', { method: 'POST' }), { skip: true });
+}
+
+// ---- up next, shuffle and repeat ----------------------------------------------------
+
+// What plays after the current track (up to 20, as Spotify reports it), or null until asked for.
+const [queue, setQueue] = createSignal(null);
+export { queue };
+
+export async function refreshQueue() {
+  try {
+    const data = await spotifyApi('/me/player/queue');
+    setQueue((data?.queue ?? []).filter((item) => item?.uri).map(trackOf));
+  } catch (err) {
+    setProblem(describeProblem(err));
+  }
+}
+
+export function setShuffle(on) {
+  return command(() => spotifyApi(`/me/player/shuffle?state=${on}`, { method: 'PUT' }), {
+    optimistic: { shuffle: on },
+    refreshQueueAfter: true, // the order of what's next changes
+  });
+}
+
+/** Repeat cycles like Spotify's button: off → the playlist or album → this track → off. */
+export const NEXT_REPEAT = { off: 'context', context: 'track', track: 'off' };
+
+export function cycleRepeat() {
+  const next = NEXT_REPEAT[player()?.repeat ?? 'off'];
+  return command(() => spotifyApi(`/me/player/repeat?state=${next}`, { method: 'PUT' }), {
+    optimistic: { repeat: next },
+    refreshQueueAfter: true,
+  });
+}
+
+/**
+ * Jump to a track in Up Next. Spotify can't skip to a queue position, so: within
+ * a playlist or album, play that context from the track (shuffle and repeat stay
+ * as they are); otherwise play that track and the ones after it.
+ */
+export function playFromQueue(index) {
+  const list = queue() ?? [];
+  const target = list[index];
+  if (!target) return;
+  const context = player()?.context;
+  const body =
+    context && /^spotify:(album|playlist):/.test(context)
+      ? { context_uri: context, offset: { uri: target.uri } }
+      : { uris: list.slice(index).map((t) => t.uri) };
+  setPlayer((p) => (p && !p.idle ? { ...p, track: target, playing: true } : p));
+  return command(() => spotifyApi('/me/player/play', { method: 'PUT', body }), { skip: true, refreshQueueAfter: true });
 }

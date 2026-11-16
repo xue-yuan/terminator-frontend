@@ -1,5 +1,7 @@
 import { createEffect, createRoot, createSignal, on } from 'solid-js';
+import { restSound } from './prefs';
 import { draft, stopRest } from './session';
+import { chime } from './sound';
 
 // The rest timer's clock, app-wide: it buzzes when rest is over and clears
 // itself a few seconds later on whichever page you are, not only the workout.
@@ -34,7 +36,9 @@ createRoot(() => {
   });
   createEffect(
     on(restRemaining, (left, prev) => {
-      if (left === 0 && prev > 0) navigator.vibrate?.([250, 120, 250]);
+      if (left !== 0 || !(prev > 0)) return;
+      navigator.vibrate?.([250, 120, 250]);
+      if (restSound()) chime();
     }),
   );
   createEffect(() => {

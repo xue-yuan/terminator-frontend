@@ -82,9 +82,12 @@ export function volume(w, unit = 'kg') {
 }
 
 /** "60×8, 60×8 kg" (working sets only). */
+/** A set's load: the weight, or "BW" for a bodyweight set (logged as 0). */
+export const formatLoad = (weight) => (Number(weight) > 0 ? formatWeight(Number(weight)) : 'BW');
+
 export function describeSets(allSets, unit) {
   const sets = workingSets(allSets);
-  const list = sets.map((s) => `${formatWeight(s.weight)}×${s.reps}`).join(', ');
+  const list = sets.map((s) => `${formatLoad(s.weight)}×${s.reps}`).join(', ');
   return unit && sets.some((s) => s.weight > 0) ? `${list} ${unit}` : list;
 }
 

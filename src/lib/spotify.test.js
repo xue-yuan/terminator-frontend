@@ -33,6 +33,7 @@ const playing = {
   is_playing: true,
   device: { name: 'iPhone' },
   item: {
+    uri: 'spotify:track:collapse',
     name: 'Till I Collapse',
     artists: [{ name: 'Eminem' }, { name: 'Nate Dogg' }],
     album: {
@@ -63,7 +64,10 @@ describe('spotify', () => {
     ]);
     expect(s.player()).toEqual({
       playing: true,
-      track: { name: 'Till I Collapse', artists: 'Eminem, Nate Dogg', image: 'small' },
+      shuffle: false,
+      repeat: 'off',
+      context: null,
+      track: { uri: 'spotify:track:collapse', name: 'Till I Collapse', artists: 'Eminem, Nate Dogg', image: 'small' },
       device: 'iPhone',
     });
   });
@@ -99,5 +103,62 @@ describe('spotify', () => {
     await s.refreshPlayer();
     expect(s.spotifyStatus().connected).toBe(false);
     expect(s.problem()).toMatch(/disconnected/);
+  });
+});
+
+describe('up next, shuffle and repeat', () => {
+  const track = (n) => ({
+    uri: `spotify:track:${n}`,
+    name: `Song ${n}`,
+    artists: [{ name: 'Band' }],
+    album: { images: [] },
+  });
+  const flush = () => new Promise((r) => setTimeout(r, 450)); // commands refresh after 400 ms
+
+  beforeEach(async () => {
+    routes['GET spotify:/me/player'] = () =>
+      json(200, { ...playing, shuffle_state: false, repeat_state: 'off', context: { uri: 'spotify:playlist:gym' } });
+    routes['GET spotify:/me/player/queue'] = () => json(200, { queue: [track(1), track(2), track(3)] });
+    await s.refreshPlayer();
+  });
+
+  it('lists what plays next', async () => {
+    await s.refreshQueue();
+    expect(s.queue().map((t) => t.name)).toEqual(['Song 1', 'Song 2', 'Song 3']);
+  });
+
+  it('toggles shuffle and cycles repeat off → all → one → off', async () => {
+    routes['PUT spotify:/me/player/shuffle?state=true'] = json(204);
+    s.setShuffle(true);
+    expect(s.player().shuffle).toBe(true); // right away, before Spotify answers
+    for (const state of ['context', 'track', 'off']) routes[`PUT spotify:/me/player/repeat?state=${state}`] = json(204);
+    await s.cycleRepeat();
+    expect(s.player().repeat).toBe('context');
+    await s.cycleRepeat();
+    expect(s.player().repeat).toBe('track');
+    await s.cycleRepeat();
+    expect(
+      calls.filter((c) => c.key.startsWith('PUT spotify:/me/player/repeat')).map((c) => c.key.split('=')[1]),
+    ).toEqual(['context', 'track', 'off']);
+    await flush();
+  });
+
+  it('jumps to a queued track: within the playlist, or by playing it and what follows', async () => {
+    routes['PUT spotify:/me/player/play'] = () => json(204);
+    await s.refreshQueue();
+    await s.playFromQueue(1);
+    expect(calls.findLast((c) => c.key === 'PUT spotify:/me/player/play').body).toEqual({
+      context_uri: 'spotify:playlist:gym',
+      offset: { uri: 'spotify:track:2' },
+    });
+    // No playlist or album to play from (e.g. a radio): the track and the rest of the queue.
+    routes['GET spotify:/me/player'] = () => json(200, { ...playing, context: null });
+    await s.refreshPlayer();
+    await s.refreshQueue();
+    await s.playFromQueue(1);
+    expect(calls.findLast((c) => c.key === 'PUT spotify:/me/player/play').body).toEqual({
+      uris: ['spotify:track:2', 'spotify:track:3'],
+    });
+    await flush();
   });
 });
