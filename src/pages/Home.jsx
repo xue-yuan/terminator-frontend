@@ -6,7 +6,7 @@ import { describeTarget, formatClock, plural } from '../lib/format';
 import { useNow } from '../lib/now';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
 import { totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
-import { useStart } from '../components/StartSheet';
+import { discardWorkout, useStart } from '../components/StartSheet';
 import { EmptyState, PageHeader, SectionTitle, StatRow } from '../components/ui';
 import ExerciseNumber from '../components/ExerciseNumber';
 import WeekStrip from '../components/WeekStrip';
@@ -97,6 +97,9 @@ function InProgress(props) {
         </p>
         <button type="button" class="btn btn-lg btn-primary btn-block mt-3" onClick={() => props.onResume()}>
           Resume
+        </button>
+        <button type="button" class="btn btn-destructive btn-block mt-1" onClick={discardWorkout}>
+          {draft().mode === 'edit' ? 'Discard Changes' : 'Discard Workout'}
         </button>
       </div>
     </>

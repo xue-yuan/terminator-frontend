@@ -68,3 +68,24 @@ describe('ExerciseNameInput', () => {
     expect(v.options()).toHaveLength(0);
   });
 });
+
+describe('ExerciseNameInput with quick picks of its own (listWhenEmpty={false})', () => {
+  it('keeps the list closed on an empty field and opens it once something is typed', () => {
+    const [value, setValue] = createSignal('');
+    const root = document.createElement('div');
+    document.body.append(root);
+    dispose = render(
+      () => <ExerciseNameInput value={value()} onInput={setValue} suggestions={NAMES} listWhenEmpty={false} />,
+      root,
+    );
+    const input = root.querySelector('input');
+    const options = () => root.querySelectorAll('[role=option]');
+    input.dispatchEvent(new Event('focus'));
+    expect(options()).toHaveLength(0);
+    expect(input.getAttribute('aria-expanded')).toBe('false');
+    input.value = 'Lift 1';
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    expect(options().length).toBeGreaterThan(0); // Lift 10–19
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+  });
+});

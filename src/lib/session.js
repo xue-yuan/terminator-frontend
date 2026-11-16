@@ -286,8 +286,18 @@ export function editWorkout(workout) {
   });
 }
 
+/** Throw the draft away. Returns a plain copy of it, for Undo (restoreDraft). */
 export function discardDraft() {
+  const copy = state.draft ? structuredClone(unwrap(state.draft)) : null;
   setDraft(null);
+  return copy;
+}
+
+/** Bring back a discarded draft (Undo), unless another workout was started meanwhile. */
+export function restoreDraft(copy) {
+  if (state.draft || !copy) return false;
+  setDraft(copy);
+  return true;
 }
 
 // ---- focus ------------------------------------------------------------------------

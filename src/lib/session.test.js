@@ -334,3 +334,20 @@ describe('repeating a workout', () => {
     expect(d.exercises.every((e) => e.sets.every((x) => !x.done))).toBe(true);
   });
 });
+
+describe('discarding', () => {
+  it('can be undone, unless another workout was started meanwhile', () => {
+    s.startWorkout({ planDay: squatDay(2) });
+    type(0, 0, 'weight', '100');
+    s.logSet(0, 0);
+    const copy = s.discardDraft();
+    expect(s.draft()).toBeNull();
+    expect(s.restoreDraft(copy)).toBe(true);
+    expect(set(0, 0)).toMatchObject({ weight: '100', done: true });
+
+    const again = s.discardDraft();
+    s.startWorkout();
+    expect(s.restoreDraft(again)).toBe(false); // the new one stays
+    expect(s.draft().exercises).toHaveLength(0);
+  });
+});

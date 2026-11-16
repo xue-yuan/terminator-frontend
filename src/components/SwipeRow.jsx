@@ -143,7 +143,7 @@ export function SwipeRow(props) {
         </For>
       </div>
       <div
-        class="relative touch-pan-y bg-card"
+        class={`relative touch-pan-y ${props.contentClass ?? 'bg-card'}`}
         style={{
           'z-index': x() ? 1 : undefined,
           transform: x() ? `translateX(${x()}px)` : undefined,

@@ -13,7 +13,8 @@ const MAX_OPTIONS = 40;
  * it. It closes, and the name is committed (onCommit), when you pick an option,
  * press Enter, tap outside, or move to another field; Escape just closes it.
  * Options are picked on click, which a finger that lands on one to scroll the
- * list never fires.
+ * list never fires. With `listWhenEmpty={false}` the list waits until something
+ * is typed (for places that show quick picks of their own under an empty field).
  */
 export default function ExerciseNameInput(props) {
   const [open, setOpen] = createSignal(false);
@@ -34,6 +35,8 @@ export default function ExerciseNameInput(props) {
       })
       .slice(0, MAX_OPTIONS);
   });
+
+  const showList = () => open() && matches().length > 0 && (props.listWhenEmpty !== false || !!props.value?.trim());
 
   function finish() {
     if (!active()) return;
@@ -79,7 +82,7 @@ export default function ExerciseNameInput(props) {
         autocapitalize="words"
         enterkeyhint="done"
         aria-label={props.label ?? 'Exercise name'}
-        aria-expanded={open() && matches().length > 0}
+        aria-expanded={showList()}
         role="combobox"
         onInput={(e) => {
           props.onInput(e.currentTarget.value);
@@ -98,7 +101,7 @@ export default function ExerciseNameInput(props) {
           if (!input.form) input.blur();
         }}
       />
-      <Show when={open() && matches().length}>
+      <Show when={showList()}>
         <ul
           class="anim-drop absolute top-full left-0 z-20 mt-1 w-[max(100%,17rem)] max-h-[min(50dvh,24rem)] origin-top touch-pan-y overflow-y-auto overscroll-contain rounded-xl bg-elevated shadow-[0_10px_40px_rgb(0_0_0/0.2)] ring-[0.5px] ring-black/5"
           role="listbox"

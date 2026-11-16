@@ -2,7 +2,7 @@ import { createEffect, For, on, onMount, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { A, useLocation } from '@solidjs/router';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
-import { ChevronUp, CircleUser, ClipboardList, History, House, Plus } from 'lucide-solid';
+import { ChevronUp, CircleUser, ClipboardList, History, House, Plus, Trash2 } from 'lucide-solid';
 import { firstLoad } from '../lib/data';
 import { formatClock, plural } from '../lib/format';
 import { pageIn } from '../lib/motion';
@@ -10,7 +10,8 @@ import { historyDepth, isTabRoot, markStart } from '../lib/nav';
 import { useNow } from '../lib/now';
 import { restProgress, restRemaining } from '../lib/rest';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
-import { StartSheet, useStart } from './StartSheet';
+import { discardWorkout, StartSheet, useStart } from './StartSheet';
+import { SwipeRow } from './SwipeRow';
 
 const FULLSCREEN = /^\/(session|plans\/new|plans\/\d+\/edit)\/?$/;
 
@@ -125,50 +126,64 @@ function TabBar() {
  */
 function MiniPlayer() {
   const { resume } = useStart();
+  // Swipe it left to throw the workout away (with Undo), like a notification.
   const now = useNow(1000);
   const resting = () => restRemaining() != null;
   return (
     <div class="mx-auto max-w-xl px-2 pb-2">
-      <button
-        type="button"
-        class="bar anim-slide-up relative flex w-full items-center gap-3 overflow-hidden rounded-2xl py-2.5 pr-3 pl-4 text-left shadow-[0_6px_24px_rgb(0_0_0/0.14)] ring-[0.5px] ring-black/5 active:scale-[0.98] active:opacity-90"
-        style={{ transition: 'transform 150ms' }}
-        aria-label="Open workout"
-        onClick={resume}
-      >
-        <span class="min-w-0 flex-1">
-          <span class="flex items-center gap-1.5 truncate text-[15px] font-semibold">
-            <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
-            <span class="truncate">{draft().name || 'Workout'}</span>
-          </span>
-          <span class="t-foot block truncate text-label-2">
-            <span class="num">{(now(), formatClock(elapsedSeconds()))}</span> · {plural(completedSetCount(), 'set')}
-          </span>
-        </span>
-        <Show when={resting()} fallback={<ChevronUp size={22} class="shrink-0 text-label-3" />}>
-          <span class="flex shrink-0 items-center gap-2">
-            <span class="t-foot text-right leading-tight text-label-2">
-              {restRemaining() > 0 ? 'Rest' : 'Rest over'}
+      <div class="anim-slide-up overflow-hidden rounded-2xl shadow-[0_6px_24px_rgb(0_0_0/0.14)] ring-[0.5px] ring-black/5">
+        <SwipeRow
+          contentClass="bar"
+          actions={[
+            {
+              label: 'Discard',
+              icon: Trash2,
+              tone: 'bad',
+              onAction: discardWorkout,
+            },
+          ]}
+        >
+          <button
+            type="button"
+            class="relative flex w-full items-center gap-3 overflow-hidden py-2.5 pr-3 pl-4 text-left active:opacity-70"
+            aria-label="Open workout"
+            onClick={resume}
+          >
+            <span class="min-w-0 flex-1">
+              <span class="flex items-center gap-1.5 truncate text-[15px] font-semibold">
+                <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+                <span class="truncate">{draft().name || 'Workout'}</span>
+              </span>
+              <span class="t-foot block truncate text-label-2">
+                <span class="num">{(now(), formatClock(elapsedSeconds()))}</span> · {plural(completedSetCount(), 'set')}
+              </span>
             </span>
-            <span
-              class="num min-w-[3.75rem] rounded-full px-2.5 py-1 text-center text-[17px] font-semibold"
-              classList={{
-                'bg-accent-soft text-accent': restRemaining() > 0,
-                'bg-accent text-on-accent': restRemaining() === 0,
-              }}
-            >
-              {restRemaining() > 0 ? formatClock(restRemaining()) : 'Go'}
-            </span>
-          </span>
-        </Show>
-        {/* Rest left, draining along the bottom edge. */}
-        <Show when={resting()}>
-          <span
-            class="absolute bottom-0 left-0 h-[3px] bg-accent"
-            style={{ width: `${restProgress() * 100}%`, transition: 'width 250ms linear' }}
-          />
-        </Show>
-      </button>
+            <Show when={resting()} fallback={<ChevronUp size={22} class="shrink-0 text-label-3" />}>
+              <span class="flex shrink-0 items-center gap-2">
+                <span class="t-foot text-right leading-tight text-label-2">
+                  {restRemaining() > 0 ? 'Rest' : 'Rest over'}
+                </span>
+                <span
+                  class="num min-w-[3.75rem] rounded-full px-2.5 py-1 text-center text-[17px] font-semibold"
+                  classList={{
+                    'bg-accent-soft text-accent': restRemaining() > 0,
+                    'bg-accent text-on-accent': restRemaining() === 0,
+                  }}
+                >
+                  {restRemaining() > 0 ? formatClock(restRemaining()) : 'Go'}
+                </span>
+              </span>
+            </Show>
+            {/* Rest left, draining along the bottom edge. */}
+            <Show when={resting()}>
+              <span
+                class="absolute bottom-0 left-0 h-[3px] bg-accent"
+                style={{ width: `${restProgress() * 100}%`, transition: 'width 250ms linear' }}
+              />
+            </Show>
+          </button>
+        </SwipeRow>
+      </div>
     </div>
   );
 }

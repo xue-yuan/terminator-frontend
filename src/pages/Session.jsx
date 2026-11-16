@@ -47,7 +47,6 @@ import {
   applyHistoryHints,
   closeEditor,
   completedSetCount,
-  discardDraft,
   draft,
   draftRecords,
   draftLabels as labels,
@@ -79,7 +78,8 @@ import {
 import { describeRecords } from '../lib/records';
 import { toast, undoable } from '../lib/toast';
 import { useWakeLock } from '../lib/wakelock';
-import { ConfirmSheet, PrTag, Segmented, Sheet, Switch } from '../components/ui';
+import { PrTag, Segmented, Sheet, Switch } from '../components/ui';
+import { discardWorkout } from '../components/StartSheet';
 import { SwipeRow } from '../components/SwipeRow';
 import ExerciseNameInput from '../components/ExerciseNameInput';
 import SpotifyBar from '../components/SpotifyBar';
@@ -90,7 +90,7 @@ const buzz = () => navigator.vibrate?.(8);
 export default function Session() {
   const navigate = useNavigate();
   const back = useBack();
-  const [sheet, setSheet] = createSignal(null); // 'details' | 'finish' | 'discard' | 'exercise'
+  const [sheet, setSheet] = createSignal(null); // 'details' | 'finish' | 'exercise'
   // The bottom bars come in once the workout has risen into place.
   const [rising, setRising] = createSignal(true);
   let root;
@@ -124,12 +124,13 @@ export default function Session() {
     leave(() => navigate(`/workouts/${workout.id}`, { replace: true }));
   };
 
+  // No confirmation: it goes right away, with Undo in the toast.
   const discard = () => {
     const wasEdit = draft().mode === 'edit';
     const id = draft().id;
     setSheet(null);
     leave(() => {
-      discardDraft();
+      discardWorkout();
       navigate(wasEdit ? `/workouts/${id}` : '/', { replace: true });
     });
   };
@@ -153,6 +154,12 @@ export default function Session() {
           />
         </Show>
 
+        <div class="group mt-10">
+          <button type="button" class="row row-tap justify-center text-bad" onClick={discard}>
+            {draft().mode === 'edit' ? 'Discard Changes' : 'Discard Workout'}
+          </button>
+        </div>
+
         <div classList={{ 'h-32': !spotifyStatus().connected, 'h-48': spotifyStatus().connected }} />
         {/* Music controls and the rest timer share the bottom edge. */}
         <Show when={!rising()}>
@@ -166,21 +173,9 @@ export default function Session() {
         </Show>
       </div>
 
-      <DetailsSheet open={sheet() === 'details'} onClose={() => setSheet(null)} onDiscard={() => setSheet('discard')} />
+      <DetailsSheet open={sheet() === 'details'} onClose={() => setSheet(null)} onDiscard={discard} />
       <ExerciseSheet open={sheet() === 'exercise'} index={focusedIndex()} onClose={() => setSheet(null)} />
       <FinishSheet open={sheet() === 'finish'} onClose={() => setSheet(null)} onFinish={finish} />
-      <ConfirmSheet
-        open={sheet() === 'discard'}
-        onClose={() => setSheet(null)}
-        onConfirm={discard}
-        title={draft().mode === 'edit' ? 'Discard Changes?' : 'Discard Workout?'}
-        confirmLabel={draft().mode === 'edit' ? 'Discard Changes' : 'Discard Workout'}
-        danger
-      >
-        {draft().mode === 'edit'
-          ? 'The saved workout stays as it was.'
-          : 'Everything logged in this session will be lost.'}
-      </ConfirmSheet>
     </Show>
   );
 }
@@ -372,7 +367,7 @@ function FirstExercise() {
             onInput={setName}
             onPick={add}
             suggestions={exerciseOptions()}
-            autofocus
+            listWhenEmpty={false}
           />
         </SearchField>
         <button type="submit" class="btn btn-primary" disabled={!name().trim()}>
@@ -390,12 +385,13 @@ function FocusedExercise(props) {
   // The name editor opens by itself for an unnamed exercise and stays open
   // while typing, until the name is committed (blur, Enter or a suggestion).
   // Keyed on the exercise itself: removing or moving one can put a different
-  // exercise at the same index.
+  // exercise at the same index. 'auto' (a new exercise) waits for a tap before
+  // the keyboard comes up; 'manual' (you tapped the name to change it) focuses it.
   const [renaming, setRenaming] = createSignal(false);
   createEffect(
     on(
       () => ex()?.key,
-      () => setRenaming(!ex()?.name),
+      () => setRenaming(ex()?.name ? false : 'auto'),
     ),
   );
   const saved = () => (ex().name ? exerciseByName(ex().name) : null);
@@ -436,7 +432,7 @@ function FocusedExercise(props) {
                 <button
                   type="button"
                   class="t-title1 block w-full text-left active:opacity-60"
-                  onClick={() => setRenaming(true)}
+                  onClick={() => setRenaming('manual')}
                 >
                   {ex().name}
                 </button>
@@ -449,7 +445,8 @@ function FocusedExercise(props) {
                     placeholder="Exercise name"
                     value={ex().name}
                     suggestions={exerciseOptions()}
-                    autofocus
+                    autofocus={renaming() === 'manual'}
+                    listWhenEmpty={false}
                     onInput={(v) => updateDraft('exercises', i(), 'name', v)}
                     onCommit={() => {
                       if (ex().name.trim()) setRenaming(false);

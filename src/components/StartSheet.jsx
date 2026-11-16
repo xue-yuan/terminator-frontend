@@ -4,10 +4,17 @@ import { ChevronRight, Plus, Repeat } from 'lucide-solid';
 import { summary, workoutList } from '../lib/data';
 import { formatDay, plural } from '../lib/format';
 import { holdBackdrop } from '../lib/motion';
-import { draft, repeatWorkout, startWorkout } from '../lib/session';
+import { discardDraft, draft, repeatWorkout, restoreDraft, startWorkout } from '../lib/session';
+import { undoable } from '../lib/toast';
 import { Section, Sheet } from './ui';
 
 const [open, setOpen] = createSignal(false);
+
+/** Throw away the workout in progress (or the changes being made to a logged one), with Undo. */
+export function discardWorkout() {
+  const copy = discardDraft();
+  if (copy) undoable(copy.mode === 'edit' ? 'Changes discarded' : 'Workout discarded', () => restoreDraft(copy));
+}
 
 /** Open the start sheet, or jump back into the workout in progress. */
 export function useStart() {
