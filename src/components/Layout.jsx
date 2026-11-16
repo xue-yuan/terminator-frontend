@@ -1,7 +1,6 @@
 import { createEffect, For, on, onCleanup, onMount, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { A, useLocation } from '@solidjs/router';
-import { useRegisterSW } from 'virtual:pwa-register/solid';
 import { ChevronUp, CircleUser, ClipboardList, History, House, Plus, Trash2 } from 'lucide-solid';
 import { firstLoad } from '../lib/data';
 import { formatClock, plural } from '../lib/format';
@@ -11,6 +10,7 @@ import { isIOS, isStandalone } from '../lib/install';
 import { useNow } from '../lib/now';
 import { restProgress, restRemaining } from '../lib/rest';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
+import { applyUpdate, dismissUpdate, needRefresh } from '../lib/updates';
 import { discardWorkout, StartSheet, useStart } from './StartSheet';
 import { SwipeRow } from './SwipeRow';
 
@@ -87,7 +87,7 @@ function Tab(props) {
   return (
     <A
       href={props.tab.href}
-      class="flex h-[3.25rem] flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-label-3 transition-transform duration-150 active:scale-90"
+      class="flex h-full flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-label-3 transition-transform duration-150 active:scale-90"
       classList={{ '!text-accent': props.active }}
       aria-current={props.active ? 'page' : undefined}
     >
@@ -103,8 +103,13 @@ function TabBar() {
   const current = () => TABS.findIndex((tab) => tab?.match.test(location.pathname));
 
   return (
-    <nav class="bar border-t-[0.5px] border-separator pb-safe" aria-label="Main">
-      <div class="mx-auto grid max-w-xl grid-cols-5 px-2">
+    <nav class="bar border-t-[0.5px] border-separator" aria-label="Main">
+      {/* The row spans the home indicator's area too, so the tabs sit in the middle
+          of the bar you see, not crowded at its top. Same total height as before. */}
+      <div
+        class="mx-auto grid max-w-xl grid-cols-5 px-2"
+        style={{ height: 'calc(3.25rem + env(safe-area-inset-bottom))' }}
+      >
         <For each={TABS}>
           {(tab, i) =>
             tab ? (
@@ -198,14 +203,6 @@ function MiniPlayer() {
 
 /** Registers the service worker (app-wide, signed in or not) and offers updates. */
 export function UpdatePrompt() {
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisteredSW(_url, registration) {
-      if (registration) setInterval(() => registration.update(), 60 * 60 * 1000);
-    },
-  });
   return (
     <Show when={needRefresh()}>
       <div
@@ -214,10 +211,10 @@ export function UpdatePrompt() {
       >
         <div class="toast bar flex items-center gap-2 rounded-2xl py-2 pr-2 pl-4 shadow-[0_8px_30px_rgb(0_0_0/0.16)] ring-[0.5px] ring-black/5">
           <span class="t-sub flex-1 font-medium">A new version is ready.</span>
-          <button type="button" class="btn btn-sm btn-plain text-label-2" onClick={() => setNeedRefresh(false)}>
+          <button type="button" class="btn btn-sm btn-plain text-label-2" onClick={dismissUpdate}>
             Later
           </button>
-          <button type="button" class="btn btn-sm btn-primary" onClick={() => updateServiceWorker(true)}>
+          <button type="button" class="btn btn-sm btn-primary" onClick={applyUpdate}>
             Update
           </button>
         </div>

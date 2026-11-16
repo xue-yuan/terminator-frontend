@@ -45,6 +45,11 @@ export default defineConfig({
       },
     ],
   },
+  // Which build is running (Profile → App → Version). Vercel sets the commit.
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __BUILD_COMMIT__: JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA ?? '').slice(0, 7)),
+  },
   // Unit tests of the app's logic; no DOM needed (vite-plugin-solid would default to jsdom).
   test: { include: ['src/**/*.test.{js,jsx}'], environment: 'node' },
   plugins: lazyPlugins(() => [

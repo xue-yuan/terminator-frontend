@@ -35,6 +35,7 @@ import { discardEntry, failedEntries, pendingEntries, retryFailed } from '../lib
 import { connectSpotify, disconnectSpotify, spotifyStatus } from '../lib/spotify';
 import { setTheme, theme } from '../lib/theme';
 import { toast } from '../lib/toast';
+import { BUILD, checkForUpdate } from '../lib/updates';
 import { wakeLockSupported } from '../lib/wakelock';
 import DataTransfer from '../components/DataTransfer';
 import { SwipeRow } from '../components/SwipeRow';
@@ -353,6 +354,7 @@ export default function Profile() {
             </button>
           </Show>
         </div>
+        <VersionRow />
       </Section>
 
       <div class="group mt-8">
@@ -375,5 +377,44 @@ export default function Profile() {
         </Show>
       </ConfirmSheet>
     </>
+  );
+}
+
+/** Which version this is (build time, commit), and a way to look for a newer one. */
+function VersionRow() {
+  const [checking, setChecking] = createSignal(false);
+  const built = new Date(BUILD.time).toLocaleString('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+
+  async function check() {
+    setChecking(true);
+    try {
+      const result = await checkForUpdate();
+      // 'ready': the "new version" prompt shows by itself.
+      if (result === 'latest') toast("You're on the latest version", 'success');
+      if (result === 'unavailable') toast(online() ? "Updates aren't available here" : "You're offline", 'error');
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <div class="row">
+      <span class="min-w-0 flex-1">
+        Version
+        <span class="t-foot num block text-label-2">
+          {built}
+          {BUILD.commit ? ` · ${BUILD.commit}` : ''}
+        </span>
+      </span>
+      <button type="button" class="btn btn-sm" aria-busy={checking()} disabled={checking()} onClick={check}>
+        Check for Updates
+      </button>
+    </div>
   );
 }
