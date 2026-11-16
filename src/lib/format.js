@@ -22,7 +22,7 @@ export const formatWeekday = (iso) => weekdayFmt.format(new Date(iso));
 export const formatNumber = (n) => numberFmt.format(Math.round(n));
 
 /** "1 workout", "3 workouts". */
-export const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
+export const plural = (n, word, many = `${word}s`) => `${n} ${Number(n) === 1 ? word : many}`;
 
 export function formatWeight(w) {
   return Number.isInteger(w) ? String(w) : String(Math.round(w * 100) / 100);
@@ -112,8 +112,9 @@ export function describeTarget(ex) {
   const { target_sets: sets, target_reps_min: lo, target_reps_max: hi } = ex;
   const reps = lo && hi ? (lo === hi ? `${lo}` : `${lo}–${hi}`) : (lo ?? hi);
   if (sets && reps) return `${sets} × ${reps}`;
-  if (sets) return `${sets} sets`;
-  return reps ? `${reps} reps` : '';
+  if (sets) return plural(sets, 'set');
+  if (!reps) return '';
+  return lo && hi && lo !== hi ? `${reps} reps` : plural(reps, 'rep');
 }
 
 /** ISO string -> value for <input type="datetime-local"> in local time. */

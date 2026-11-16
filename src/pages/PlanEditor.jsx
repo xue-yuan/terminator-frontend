@@ -1,14 +1,16 @@
 import { createMemo, createSignal, For, onMount, Show } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import { useNavigate, useParams } from '@solidjs/router';
-import { ArrowDown, ArrowRight, ArrowUp, CloudOff, Ellipsis, Link2, Plus, Trash2, X } from 'lucide-solid';
+import { ArrowDown, ArrowUp, ChevronRight, CloudOff, Ellipsis, Link2, Plus, Trash2 } from 'lucide-solid';
 import { api } from '../lib/api';
 import { exerciseOptions, plans, savePlan } from '../lib/data';
 import { supersetLabels } from '../lib/format';
+import { useBack } from '../lib/nav';
 import { online } from '../lib/network';
 import { PLAN_TEMPLATES } from '../lib/templates';
 import { toast } from '../lib/toast';
 import { uuid } from '../lib/uuid';
+import { SwipeRow } from '../components/SwipeRow';
 import { ConfirmSheet, Sheet, Spinner } from '../components/ui';
 import ExerciseNameInput from '../components/ExerciseNameInput';
 
@@ -66,6 +68,7 @@ function move(list, i, delta) {
 export default function PlanEditor() {
   const params = useParams();
   const navigate = useNavigate();
+  const back = useBack();
   const editingId = () => (params.id ? Number(params.id) : null);
   const [form, setForm] = createStore(toForm(null));
   const [loaded, setLoaded] = createSignal(!params.id);
@@ -97,7 +100,7 @@ export default function PlanEditor() {
   });
 
   const backTo = () => (editingId() ? `/plans/${editingId()}` : '/plans');
-  const leave = () => (JSON.stringify(form) === pristine ? navigate(backTo()) : setConfirmLeave(true));
+  const leave = () => (JSON.stringify(form) === pristine ? back(backTo()) : setConfirmLeave(true));
 
   function validate() {
     if (!form.name.trim()) return 'Give the plan a name';
@@ -145,41 +148,62 @@ export default function PlanEditor() {
     }
   }
 
-  const numberInput = (d, e, field, label) => (
+  const numberInput = (d, e, field, label, placeholder) => (
     <input
-      class="field h-11 px-1 text-center font-display text-xl font-bold"
+      class="num h-8 w-11 rounded-lg bg-fill text-center text-[16px] font-semibold outline-none focus:ring-2 focus:ring-accent"
       inputmode="numeric"
       aria-label={label}
+      placeholder={placeholder}
       value={form.days[d].exercises[e][field]}
       onInput={(ev) => setForm('days', d, 'exercises', e, field, ev.currentTarget.value.replace(/\D/g, ''))}
       onFocus={(ev) => ev.currentTarget.select()}
     />
   );
 
+  const removeExercise = (d, e) => setForm('days', d, 'exercises', (l) => l.filter((_, k) => k !== e));
+  const moveDay = (d, delta) =>
+    setForm(
+      'days',
+      produce((l) => move(l, d, delta)),
+    );
+
+  // A form sheet's bar: Cancel, the title, Save.
   const header = (
     <div
-      class="sticky top-0 z-30 -mx-5 mb-4 flex items-center gap-2 border-b-2 border-ink bg-paper px-5 pb-2"
-      style={{ 'padding-top': 'calc(env(safe-area-inset-top) + 0.5rem)' }}
+      class="bar sticky top-0 z-30 -mx-4 mb-2 border-b-[0.5px] border-separator px-4"
+      style={{ 'padding-top': 'calc(env(safe-area-inset-top) + 0.25rem)' }}
     >
-      <button class="btn btn-icon -ml-3" aria-label="Cancel" onClick={leave}>
-        <X size={24} />
-      </button>
-      <p class="display flex-1 truncate text-2xl">{editingId() ? 'Edit plan' : 'New plan'}</p>
-      <Show when={!picking()}>
-        <button type="button" class="btn btn-sm btn-signal" onClick={save} aria-busy={saving()} disabled={!online()}>
-          Save
-        </button>
-      </Show>
+      <div class="flex h-11 items-center gap-2">
+        <div class="w-20 shrink-0">
+          <button type="button" class="-ml-1 h-11 px-1 text-[17px] text-accent active:opacity-50" onClick={leave}>
+            Cancel
+          </button>
+        </div>
+        <p class="t-headline min-w-0 flex-1 truncate text-center">{editingId() ? 'Edit Plan' : 'New Plan'}</p>
+        <div class="flex w-20 shrink-0 justify-end">
+          <Show when={!picking()}>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary"
+              onClick={save}
+              aria-busy={saving()}
+              disabled={!online()}
+            >
+              Save
+            </button>
+          </Show>
+        </div>
+      </div>
     </div>
   );
 
   return (
-    <Show when={loaded()} fallback={<Spinner class="mx-auto mt-24 block" />}>
+    <Show when={loaded()} fallback={<Spinner class="mx-auto mt-24 block text-label-2" />}>
       {header}
 
       <Show when={!online()}>
-        <p class="mb-4 flex items-center gap-2 border-l-4 border-warn bg-sunk px-3 py-2 text-sm">
-          <CloudOff size={16} class="text-warn" /> Plans can only be saved while online.
+        <p class="t-sub mt-2 flex items-center gap-2 rounded-xl bg-card px-4 py-3 text-label-2">
+          <CloudOff size={18} class="shrink-0 text-warn" /> Plans can only be saved while online.
         </p>
       </Show>
 
@@ -187,50 +211,50 @@ export default function PlanEditor() {
         when={!picking()}
         fallback={
           <>
-            <p class="eyebrow">Start from a template</p>
-            <ul class="mt-2 border-t-2 border-ink">
+            <p class="group-header">Start from a template</p>
+            <div class="group">
               <For each={PLAN_TEMPLATES}>
                 {(t) => (
-                  <li>
-                    <button
-                      class="rule flex w-full items-center gap-3 border-b py-4 text-left active:bg-sunk"
-                      onClick={() => {
-                        setForm(toForm(t));
-                        setPicking(false);
-                      }}
-                    >
-                      <div class="min-w-0 flex-1">
-                        <p class="display text-2xl">{t.name}</p>
-                        <p class="mt-0.5 text-sm text-muted">{t.description}</p>
-                      </div>
-                      <ArrowRight size={20} class="shrink-0 text-muted" />
-                    </button>
-                  </li>
+                  <button
+                    type="button"
+                    class="row row-tap"
+                    onClick={() => {
+                      setForm(toForm(t));
+                      setPicking(false);
+                    }}
+                  >
+                    <div class="min-w-0 flex-1">
+                      <p class="t-headline">{t.name}</p>
+                      <p class="t-foot text-label-2">{t.description}</p>
+                    </div>
+                    <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+                  </button>
                 )}
               </For>
-            </ul>
+            </div>
             <button
-              class="btn btn-block mt-5"
+              type="button"
+              class="btn btn-lg btn-block mt-6 bg-card"
               onClick={() => {
                 setForm('days', [{ key: uuid(), name: 'Day 1', exercises: [newExercise()] }]);
                 setPicking(false);
               }}
             >
-              <Plus size={18} /> Start from scratch
+              <Plus size={20} strokeWidth={2.5} /> Start from Scratch
             </button>
           </>
         }
       >
-        <div class="grid gap-2">
+        <div class="group mt-4">
           <input
-            class="field display h-14 !text-3xl"
+            class="field-inline row t-headline"
             placeholder="Plan name"
             aria-label="Plan name"
             value={form.name}
             onInput={(e) => setForm('name', e.currentTarget.value)}
           />
           <textarea
-            class="field"
+            class="field-inline block min-h-16 w-full px-4 py-3"
             rows="2"
             placeholder="Description (optional)"
             aria-label="Description"
@@ -241,115 +265,128 @@ export default function PlanEditor() {
 
         <For each={form.days}>
           {(day, d) => (
-            <section class="mt-7">
-              <div class="flex items-center gap-1 border-b-2 border-ink pb-1.5">
+            <section>
+              <div class="group-header flex items-end gap-1">
+                <span class="min-w-0 flex-1">Day {d() + 1}</span>
+                <button
+                  type="button"
+                  class="btn btn-round -mb-1 text-accent disabled:opacity-30"
+                  aria-label="Move day up"
+                  disabled={d() === 0}
+                  onClick={() => moveDay(d(), -1)}
+                >
+                  <ArrowUp size={16} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-round -mb-1 text-accent disabled:opacity-30"
+                  aria-label="Move day down"
+                  disabled={d() === form.days.length - 1}
+                  onClick={() => moveDay(d(), 1)}
+                >
+                  <ArrowDown size={16} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-round -mb-1 text-bad"
+                  aria-label="Remove day"
+                  onClick={() => setForm('days', (l) => l.filter((_, k) => k !== d()))}
+                >
+                  <Trash2 size={15} strokeWidth={2.25} />
+                </button>
+              </div>
+              <div class="group overflow-visible">
                 <input
-                  class="display min-w-0 flex-1 bg-transparent text-[1.75rem] outline-none placeholder:text-muted"
-                  placeholder={`Day ${d() + 1}`}
+                  class="field-inline row t-headline rounded-t-xl"
+                  placeholder={`Day ${d() + 1} name`}
                   aria-label={`Day ${d() + 1} name`}
                   value={day.name}
                   onInput={(e) => setForm('days', d(), 'name', e.currentTarget.value)}
                 />
+                <For each={day.exercises}>
+                  {(ex, e) => {
+                    const label = () => supersetLabels(supersetNumbers(day.exercises))[e()];
+                    const isLast = () => e() === day.exercises.length - 1;
+                    return (
+                      <SwipeRow
+                        style={{ '--sep-inset': '3rem' }}
+                        actions={[
+                          { label: 'Delete', icon: Trash2, tone: 'bad', onAction: () => removeExercise(d(), e()) },
+                        ]}
+                      >
+                        <div class="flex items-start gap-1 py-2 pr-2 pl-4">
+                          <span
+                            class="num mt-2.5 w-7 shrink-0 text-[15px] font-semibold"
+                            classList={{ 'text-accent': !!label(), 'text-label-3': !label() }}
+                          >
+                            {label() ?? e() + 1}
+                          </span>
+                          <div class="min-w-0 flex-1">
+                            <ExerciseNameInput
+                              class="field-inline h-10 w-full"
+                              placeholder="Exercise"
+                              value={ex.exercise_name}
+                              suggestions={suggestions()}
+                              onInput={(v) => setForm('days', d(), 'exercises', e(), 'exercise_name', v)}
+                            />
+                            <div class="t-foot flex items-center gap-1.5 pb-1 text-label-2">
+                              {numberInput(d(), e(), 'target_sets', 'Target sets', '3')}
+                              <span>sets ×</span>
+                              {numberInput(d(), e(), 'target_reps_min', 'Minimum reps', '8')}
+                              <span>–</span>
+                              {numberInput(d(), e(), 'target_reps_max', 'Maximum reps', '12')}
+                              <span>reps</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            class="btn btn-icon h-10 w-10"
+                            classList={{
+                              'text-accent': ex.linkNext && !isLast(),
+                              'text-label-3': !ex.linkNext || isLast(),
+                            }}
+                            aria-label="Superset with next exercise"
+                            aria-pressed={ex.linkNext && !isLast()}
+                            disabled={isLast()}
+                            onClick={() => setForm('days', d(), 'exercises', e(), 'linkNext', (v) => !v)}
+                          >
+                            <Link2 size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-icon h-10 w-10 text-label-2"
+                            aria-label={`More for ${ex.exercise_name || 'this exercise'}`}
+                            onClick={() => setMenu({ d: d(), e: e() })}
+                          >
+                            <Ellipsis size={20} />
+                          </button>
+                        </div>
+                      </SwipeRow>
+                    );
+                  }}
+                </For>
                 <button
-                  class="btn btn-icon"
-                  aria-label="Move day up"
-                  disabled={d() === 0}
-                  onClick={() =>
-                    setForm(
-                      'days',
-                      produce((l) => move(l, d(), -1)),
-                    )
-                  }
+                  type="button"
+                  class="row row-tap rounded-b-xl text-accent"
+                  onClick={() => setForm('days', d(), 'exercises', (l) => [...l, newExercise()])}
                 >
-                  <ArrowUp size={18} />
-                </button>
-                <button
-                  class="btn btn-icon"
-                  aria-label="Move day down"
-                  disabled={d() === form.days.length - 1}
-                  onClick={() =>
-                    setForm(
-                      'days',
-                      produce((l) => move(l, d(), 1)),
-                    )
-                  }
-                >
-                  <ArrowDown size={18} />
-                </button>
-                <button
-                  class="btn btn-icon -mr-3 text-bad"
-                  aria-label="Remove day"
-                  onClick={() => setForm('days', (l) => l.filter((_, k) => k !== d()))}
-                >
-                  <Trash2 size={18} />
+                  <Plus size={20} strokeWidth={2.5} class="w-6" /> Add Exercise
                 </button>
               </div>
-
-              <For each={day.exercises}>
-                {(ex, e) => {
-                  const label = () => supersetLabels(supersetNumbers(day.exercises))[e()];
-                  const isLast = () => e() === day.exercises.length - 1;
-                  return (
-                    <div class="rule border-b py-3">
-                      <div class="flex items-center gap-1">
-                        <span
-                          class="display w-7 shrink-0 text-lg"
-                          classList={{ 'text-signal': !!label(), 'text-muted': !label() }}
-                        >
-                          {label() ?? e() + 1}
-                        </span>
-                        <ExerciseNameInput
-                          class="field h-11"
-                          value={ex.exercise_name}
-                          suggestions={suggestions()}
-                          onInput={(v) => setForm('days', d(), 'exercises', e(), 'exercise_name', v)}
-                        />
-                        <button
-                          class="btn btn-icon"
-                          classList={{ 'text-signal': ex.linkNext && !isLast(), 'text-muted': !ex.linkNext }}
-                          aria-label="Superset with next exercise"
-                          aria-pressed={ex.linkNext && !isLast()}
-                          disabled={isLast()}
-                          onClick={() => setForm('days', d(), 'exercises', e(), 'linkNext', (v) => !v)}
-                        >
-                          <Link2 size={16} />
-                        </button>
-                        <button
-                          class="btn btn-icon -mr-3"
-                          aria-label={`More for ${ex.exercise_name || 'this exercise'}`}
-                          onClick={() => setMenu({ d: d(), e: e() })}
-                        >
-                          <Ellipsis size={20} />
-                        </button>
-                      </div>
-                      <div class="mt-2 ml-7 grid grid-cols-[3.5rem_auto_3.5rem_auto_3.5rem_auto] items-center gap-2 text-sm text-muted">
-                        {numberInput(d(), e(), 'target_sets', 'Target sets')}
-                        <span class="eyebrow">sets</span>
-                        {numberInput(d(), e(), 'target_reps_min', 'Minimum reps')}
-                        <span>–</span>
-                        {numberInput(d(), e(), 'target_reps_max', 'Maximum reps')}
-                        <span class="eyebrow">reps</span>
-                      </div>
-                    </div>
-                  );
-                }}
-              </For>
-              <button
-                class="btn btn-quiet btn-block mt-1 text-muted"
-                onClick={() => setForm('days', d(), 'exercises', (l) => [...l, newExercise()])}
-              >
-                <Plus size={18} /> Add exercise
-              </button>
             </section>
           )}
         </For>
 
         <button
-          class="btn btn-block mt-6 border-dashed"
+          type="button"
+          class="btn btn-lg btn-block mt-8 bg-card"
           onClick={() => setForm('days', (l) => [...l, { key: uuid(), name: '', exercises: [newExercise()] }])}
         >
-          <Plus size={18} /> Add day
+          <Plus size={20} strokeWidth={2.5} /> Add Day
         </button>
+        <p class="group-footer text-center">
+          Swipe an exercise left to remove it. The link button supersets it with the next one.
+        </p>
         <div class="h-10" />
       </Show>
 
@@ -365,48 +402,55 @@ export default function PlanEditor() {
               fn();
               setMenu(null);
             };
-            const row = 'rule flex items-center gap-3 border-b py-4 text-left text-lg font-medium disabled:opacity-35';
+            const item = 'row row-tap disabled:opacity-35';
             return (
-              <div class="rule grid border-t">
-                <button
-                  class={row}
-                  disabled={m().e === 0}
-                  onClick={() =>
-                    act(() =>
-                      setForm(
-                        'days',
-                        m().d,
-                        'exercises',
-                        produce((l) => move(l, m().e, -1)),
-                      ),
-                    )
-                  }
-                >
-                  <ArrowUp size={20} /> Move earlier
-                </button>
-                <button
-                  class={row}
-                  disabled={m().e >= count() - 1}
-                  onClick={() =>
-                    act(() =>
-                      setForm(
-                        'days',
-                        m().d,
-                        'exercises',
-                        produce((l) => move(l, m().e, 1)),
-                      ),
-                    )
-                  }
-                >
-                  <ArrowDown size={20} /> Move later
-                </button>
-                <button
-                  class={`${row} text-bad`}
-                  onClick={() => act(() => setForm('days', m().d, 'exercises', (l) => l.filter((_, k) => k !== m().e)))}
-                >
-                  <Trash2 size={20} /> Remove exercise
-                </button>
-              </div>
+              <>
+                <div class="group" style={{ '--sep-inset': '3.25rem' }}>
+                  <button
+                    type="button"
+                    class={item}
+                    disabled={m().e === 0}
+                    onClick={() =>
+                      act(() =>
+                        setForm(
+                          'days',
+                          m().d,
+                          'exercises',
+                          produce((l) => move(l, m().e, -1)),
+                        ),
+                      )
+                    }
+                  >
+                    <ArrowUp size={20} class="w-6 text-accent" /> Move Earlier
+                  </button>
+                  <button
+                    type="button"
+                    class={item}
+                    disabled={m().e >= count() - 1}
+                    onClick={() =>
+                      act(() =>
+                        setForm(
+                          'days',
+                          m().d,
+                          'exercises',
+                          produce((l) => move(l, m().e, 1)),
+                        ),
+                      )
+                    }
+                  >
+                    <ArrowDown size={20} class="w-6 text-accent" /> Move Later
+                  </button>
+                </div>
+                <div class="group mt-6">
+                  <button
+                    type="button"
+                    class={`${item} text-bad`}
+                    onClick={() => act(() => removeExercise(m().d, m().e))}
+                  >
+                    <Trash2 size={20} class="w-6" /> Remove Exercise
+                  </button>
+                </div>
+              </>
             );
           }}
         </Show>
@@ -415,9 +459,9 @@ export default function PlanEditor() {
       <ConfirmSheet
         open={confirmLeave()}
         onClose={() => setConfirmLeave(false)}
-        onConfirm={() => navigate(backTo())}
-        title="Discard changes?"
-        confirmLabel="Discard"
+        onConfirm={() => back(backTo())}
+        title="Discard Changes?"
+        confirmLabel="Discard Changes"
         danger
       />
     </Show>

@@ -1,4 +1,5 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
+import { Dumbbell } from 'lucide-solid';
 import { api } from '../lib/api';
 import { RECENT_LIMIT, workoutList, workouts } from '../lib/data';
 import { formatNumber, plural, volume } from '../lib/format';
@@ -8,7 +9,7 @@ import { totalWorkouts } from '../lib/stats';
 import { toast } from '../lib/toast';
 import { useStart } from '../components/StartSheet';
 import { EmptyState, LogTabs, PageHeader } from '../components/ui';
-import WorkoutRow from '../components/WorkoutRow';
+import { WorkoutList } from '../components/WorkoutRow';
 
 const PAGE = 50;
 
@@ -69,30 +70,36 @@ export default function History() {
       <Show
         when={all().length}
         fallback={
-          <EmptyState title="Nothing logged yet" body="Finish a workout and it lands here, even when you're offline.">
-            <button class="btn btn-signal" onClick={openSheet}>
-              Start a workout
-            </button>
-          </EmptyState>
+          <div class="card mt-4">
+            <EmptyState
+              icon={Dumbbell}
+              title="Nothing logged yet"
+              body="Finish a workout and it lands here, even when you're offline."
+            >
+              <button type="button" class="btn btn-primary" onClick={openSheet}>
+                Start a Workout
+              </button>
+            </EmptyState>
+          </div>
         }
       >
         <For each={weeks()}>
           {(week) => (
-            <section class="mb-6">
-              <div class="flex items-baseline justify-between border-b-2 border-ink pb-1.5">
-                <h2 class="display text-xl">{weekLabel(week.monday)}</h2>
-                <p class="eyebrow">
-                  {week.items.length} {week.items.length === 1 ? 'session' : 'sessions'} ·{' '}
+            <section>
+              <div class="group-header flex items-end justify-between gap-3">
+                <span>{weekLabel(week.monday)}</span>
+                <span class="normal-case">
+                  {plural(week.items.length, 'session')} ·{' '}
                   {formatNumber(week.items.reduce((t, w) => t + volume(w, unit()), 0))} {unit()}
-                </p>
+                </span>
               </div>
-              <For each={week.items}>{(w) => <WorkoutRow workout={w} />}</For>
+              <WorkoutList workouts={week.items} />
             </section>
           )}
         </For>
         <Show when={canLoadMore()}>
-          <button type="button" class="btn btn-block" onClick={loadOlder} aria-busy={loadingOlder()}>
-            Load older
+          <button type="button" class="btn btn-block mt-6 bg-card" onClick={loadOlder} aria-busy={loadingOlder()}>
+            Load Older Workouts
           </button>
         </Show>
       </Show>

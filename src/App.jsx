@@ -37,6 +37,7 @@ function GuestOnly() {
 export default function App() {
   return (
     <Router
+      scrollRestoration
       root={(props) => (
         <>
           {props.children}

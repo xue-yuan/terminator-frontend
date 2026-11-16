@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from '@solidjs/router';
 import { Check, TriangleAlert } from 'lucide-solid';
 import { isSignedIn } from '../lib/auth';
 import { refreshSpotifyStatus } from '../lib/spotify';
-import { Logo } from '../components/ui';
 
 const PROBLEMS = {
   denied: "Spotify wasn't given access.",
@@ -42,27 +41,23 @@ export default function SpotifyDone() {
         'padding-bottom': 'calc(env(safe-area-inset-bottom) + 1.5rem)',
       }}
     >
-      <Logo class="h-12 w-12" />
-      <div class="flex flex-1 flex-col justify-center py-10">
+      <div class="flex flex-1 flex-col items-center justify-center py-10 text-center">
         <span
-          class="flex h-14 w-14 items-center justify-center border-2 border-ink"
-          classList={{ 'bg-signal text-on-signal': ok(), 'bg-bad text-paper': !ok() }}
+          class="flex h-20 w-20 items-center justify-center rounded-full text-white"
+          classList={{ 'bg-[#1db954]': ok(), 'bg-bad': !ok() }}
         >
           <Show when={ok()} fallback={<TriangleAlert size={28} strokeWidth={2.5} />}>
-            <Check size={32} strokeWidth={3} />
+            <Check size={40} strokeWidth={3} />
           </Show>
         </span>
-        <p class="eyebrow mt-6">Spotify</p>
-        <h1 class="display mt-1 text-[clamp(3rem,15vw,4.5rem)] leading-[0.9]">
-          {ok() ? 'Connected' : 'Not connected'}
-          <span class="text-signal">.</span>
-        </h1>
-        <p class="mt-4 max-w-xs text-lg text-muted" role="status">
+        <p class="t-foot mt-6 font-semibold text-label-2 uppercase">Spotify</p>
+        <h1 class="t-large mt-0.5">{ok() ? 'Connected' : 'Not Connected'}</h1>
+        <p class="t-sub mt-2 max-w-xs text-label-2" role="status">
           {message()}
         </p>
       </div>
       <Show when={isSignedIn()}>
-        <button class="btn btn-lg btn-signal btn-block" onClick={back}>
+        <button type="button" class="btn btn-lg btn-primary btn-block" onClick={back}>
           {ok() ? 'Continue' : 'Back to the app'}
         </button>
       </Show>

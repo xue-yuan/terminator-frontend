@@ -11,7 +11,7 @@ function apply(value) {
   if (value === 'system') root.removeAttribute('data-theme');
   else root.dataset.theme = value;
   const dark = value === 'dark' || (value === 'system' && darkQuery.matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f0f0f' : '#f2f0ea');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#f2f2f7');
 }
 
 apply(initial);

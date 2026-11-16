@@ -1,13 +1,15 @@
-import { createEffect, For, on, Show } from 'solid-js';
+import { createEffect, For, on, onMount, Show } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import { A, useLocation } from '@solidjs/router';
 import { useRegisterSW } from 'virtual:pwa-register/solid';
-import { Play } from 'lucide-solid';
-import { fetching } from '../lib/data';
-import { formatClock } from '../lib/format';
-import { enter } from '../lib/motion';
+import { ChevronUp, CircleUser, ClipboardList, History, House, Plus } from 'lucide-solid';
+import { firstLoad } from '../lib/data';
+import { formatClock, plural } from '../lib/format';
+import { pageIn } from '../lib/motion';
+import { historyDepth, isTabRoot, markStart } from '../lib/nav';
 import { useNow } from '../lib/now';
-import { draft, elapsedSeconds } from '../lib/session';
-import { pendingEntries } from '../lib/sync';
+import { restProgress, restRemaining } from '../lib/rest';
+import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
 import { StartSheet, useStart } from './StartSheet';
 
 const FULLSCREEN = /^\/(session|plans\/new|plans\/\d+\/edit)\/?$/;
@@ -16,101 +18,97 @@ export default function AppLayout(props) {
   const location = useLocation();
   const fullscreen = () => FULLSCREEN.test(location.pathname);
   let main;
-  // A new page eases in instead of snapping into place.
+  let depth;
+  onMount(() => {
+    markStart();
+    depth = historyDepth();
+  });
+  // Pages move like iOS: deeper pages slide in from the right, going back
+  // slides the previous one in from the left, tabs cross-fade. The workout
+  // animates itself (it rises from and sinks back into the bottom bar).
   createEffect(
     on(
       () => location.pathname,
-      () => enter(main),
+      (path, prev) => {
+        const before = depth;
+        depth = historyDepth();
+        if (path === '/session' || prev === '/session') return;
+        if (isTabRoot(path) && isTabRoot(prev)) return pageIn(main, 'fade');
+        pageIn(main, depth < before ? 'pop' : depth > before ? 'push' : 'fade');
+      },
       { defer: true },
     ),
   );
   return (
-    <div class="min-h-dvh">
-      <Show when={fetching()}>
+    <div class="min-h-dvh" data-layout>
+      <Show when={firstLoad()}>
         <div class="loading-bar" role="progressbar" aria-label="Loading" />
       </Show>
-      <main ref={main} class="mx-auto max-w-xl px-5" classList={{ 'pb-36': !fullscreen() }}>
+      <main
+        ref={main}
+        class="mx-auto max-w-xl px-4"
+        classList={{ 'pb-28': !fullscreen() && !draft(), 'pb-44': !fullscreen() && !!draft() }}
+      >
         {props.children}
       </main>
       <Show when={!fullscreen()}>
-        <BottomNav />
+        <div class="fixed inset-x-0 bottom-0 z-40">
+          <Show when={draft()}>
+            <MiniPlayer />
+          </Show>
+          <TabBar />
+        </div>
       </Show>
       <StartSheet />
     </div>
   );
 }
 
-// Bottom nav, left to right; null is the Start button in the middle. `match`
+// Tab bar, left to right; null is the Start button in the middle. `match`
 // says which pages light a tab up (Log covers workouts and exercises too).
 const TABS = [
-  { href: '/', label: 'Today', match: /^\/$/ },
-  { href: '/history', label: 'Log', match: /^\/(history|exercises|workouts)(\/|$)/ },
+  { href: '/', label: 'Today', icon: House, match: /^\/$/ },
+  { href: '/history', label: 'Log', icon: History, match: /^\/(history|exercises|workouts)(\/|$)/ },
   null,
-  { href: '/plans', label: 'Plans', match: /^\/plans(\/|$)/ },
-  { href: '/profile', label: 'You', match: /^\/(profile|body|admin)(\/|$)/ },
+  { href: '/plans', label: 'Plans', icon: ClipboardList, match: /^\/plans(\/|$)/ },
+  { href: '/profile', label: 'You', icon: CircleUser, match: /^\/(profile|body|admin)(\/|$)/ },
 ];
 
 function Tab(props) {
   return (
     <A
       href={props.tab.href}
-      class="relative flex h-14 flex-col items-center justify-center font-display text-[0.8rem] font-bold tracking-[0.12em] text-muted uppercase transition-[color,transform] duration-150 active:scale-95"
-      classList={{ '!text-ink': props.active }}
+      class="flex h-[3.25rem] flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-label-3 transition-transform duration-150 active:scale-90"
+      classList={{ '!text-accent': props.active }}
       aria-current={props.active ? 'page' : undefined}
     >
+      <Dynamic component={props.tab.icon} size={25} strokeWidth={props.active ? 2.25 : 1.75} />
       {props.tab.label}
-      <Show when={props.dot}>
-        <span class="absolute top-3 right-[calc(50%-1.6rem)] h-1.5 w-1.5 bg-warn" aria-label="Unsynced changes" />
-      </Show>
     </A>
   );
 }
 
-function BottomNav() {
+function TabBar() {
   const location = useLocation();
   const { openSheet } = useStart();
-  const now = useNow();
-  const live = () => (draft() ? (now(), formatClock(elapsedSeconds())) : null);
   const current = () => TABS.findIndex((tab) => tab?.match.test(location.pathname));
 
   return (
-    <nav class="rule fixed inset-x-0 bottom-0 z-40 border-t-2 bg-paper pb-safe" aria-label="Main">
-      <div class="relative mx-auto grid max-w-xl grid-cols-5 items-end px-1">
-        {/* One marker that slides to the current tab. */}
-        <span
-          aria-hidden="true"
-          class="pointer-events-none absolute top-0 left-1 flex w-[calc((100%-0.5rem)/5)] justify-center transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.2,0.9,0.25,1)]"
-          style={{ transform: `translateX(${Math.max(current(), 0) * 100}%)`, opacity: current() < 0 ? 0 : 1 }}
-        >
-          <span class="h-[3px] w-8 bg-signal" />
-        </span>
+    <nav class="bar border-t-[0.5px] border-separator pb-safe" aria-label="Main">
+      <div class="mx-auto grid max-w-xl grid-cols-5 px-2">
         <For each={TABS}>
           {(tab, i) =>
             tab ? (
-              <Tab tab={tab} active={current() === i()} dot={tab.href === '/history' && pendingEntries().length > 0} />
+              <Tab tab={tab} active={current() === i()} />
             ) : (
-              <div class="flex justify-center">
+              <div class="flex items-center justify-center">
                 <button
-                  class="-mt-6 flex h-[4.5rem] w-[4.5rem] flex-col items-center justify-center border-2 border-ink bg-signal text-on-signal shadow-[4px_4px_0_var(--ink)] transition-[transform,box-shadow] duration-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_var(--ink)]"
+                  type="button"
+                  class="flex h-11 w-14 items-center justify-center rounded-full bg-accent text-on-accent shadow-[0_4px_12px_var(--accent-soft)] transition-transform duration-150 active:scale-90"
                   aria-label={draft() ? 'Resume workout' : 'Start workout'}
                   onClick={openSheet}
                 >
-                  <Show
-                    when={live()}
-                    fallback={
-                      <>
-                        <Play size={22} fill="currentColor" />
-                        <span class="mt-0.5 font-display text-[0.8rem] font-extrabold tracking-[0.1em] uppercase">
-                          Start
-                        </span>
-                      </>
-                    }
-                  >
-                    <span class="flex items-center gap-1 font-display text-[0.7rem] font-extrabold tracking-[0.1em] uppercase">
-                      <span class="h-1.5 w-1.5 animate-pulse bg-on-signal" /> Live
-                    </span>
-                    <span class="font-display text-lg leading-tight font-extrabold">{live()}</span>
-                  </Show>
+                  <Plus size={26} strokeWidth={2.5} />
                 </button>
               </div>
             )
@@ -118,6 +116,60 @@ function BottomNav() {
         </For>
       </div>
     </nav>
+  );
+}
+
+/**
+ * The workout in progress, docked above the tab bar like a mini player: its
+ * name, the time and sets, and the rest countdown while resting. Tap to open.
+ */
+function MiniPlayer() {
+  const { resume } = useStart();
+  const now = useNow(1000);
+  const resting = () => restRemaining() != null;
+  return (
+    <div class="mx-auto max-w-xl px-2 pb-2">
+      <button
+        type="button"
+        class="bar anim-slide-up relative flex w-full items-center gap-3 overflow-hidden rounded-2xl py-2.5 pr-3 pl-4 text-left shadow-[0_6px_24px_rgb(0_0_0/0.14)] ring-[0.5px] ring-black/5 active:scale-[0.98] active:opacity-90"
+        style={{ transition: 'transform 150ms' }}
+        aria-label="Open workout"
+        onClick={resume}
+      >
+        <span class="min-w-0 flex-1">
+          <span class="flex items-center gap-1.5 truncate text-[15px] font-semibold">
+            <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+            <span class="truncate">{draft().name || 'Workout'}</span>
+          </span>
+          <span class="t-foot block truncate text-label-2">
+            <span class="num">{(now(), formatClock(elapsedSeconds()))}</span> · {plural(completedSetCount(), 'set')}
+          </span>
+        </span>
+        <Show when={resting()} fallback={<ChevronUp size={22} class="shrink-0 text-label-3" />}>
+          <span class="flex shrink-0 items-center gap-2">
+            <span class="t-foot text-right leading-tight text-label-2">
+              {restRemaining() > 0 ? 'Rest' : 'Rest over'}
+            </span>
+            <span
+              class="num min-w-[3.75rem] rounded-full px-2.5 py-1 text-center text-[17px] font-semibold"
+              classList={{
+                'bg-accent-soft text-accent': restRemaining() > 0,
+                'bg-accent text-on-accent': restRemaining() === 0,
+              }}
+            >
+              {restRemaining() > 0 ? formatClock(restRemaining()) : 'Go'}
+            </span>
+          </span>
+        </Show>
+        {/* Rest left, draining along the bottom edge. */}
+        <Show when={resting()}>
+          <span
+            class="absolute bottom-0 left-0 h-[3px] bg-accent"
+            style={{ width: `${restProgress() * 100}%`, transition: 'width 250ms linear' }}
+          />
+        </Show>
+      </button>
+    </div>
   );
 }
 
@@ -134,16 +186,16 @@ export function UpdatePrompt() {
   return (
     <Show when={needRefresh()}>
       <div
-        class="fixed inset-x-0 z-50 mx-auto max-w-md px-4"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 6.5rem)' }}
+        class="fixed inset-x-0 z-50 mx-auto max-w-md px-3"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 4.25rem)' }}
       >
-        <div class="toast flex items-center gap-2 border-2 border-ink bg-raised p-3 shadow-[4px_4px_0_var(--ink)]">
-          <span class="flex-1 font-medium">New version ready.</span>
-          <button class="btn btn-sm btn-quiet" onClick={() => setNeedRefresh(false)}>
+        <div class="toast bar flex items-center gap-2 rounded-2xl py-2 pr-2 pl-4 shadow-[0_8px_30px_rgb(0_0_0/0.16)] ring-[0.5px] ring-black/5">
+          <span class="t-sub flex-1 font-medium">A new version is ready.</span>
+          <button type="button" class="btn btn-sm btn-plain text-label-2" onClick={() => setNeedRefresh(false)}>
             Later
           </button>
-          <button class="btn btn-sm btn-ink" onClick={() => updateServiceWorker(true)}>
-            Reload
+          <button type="button" class="btn btn-sm btn-primary" onClick={() => updateServiceWorker(true)}>
+            Update
           </button>
         </div>
       </div>

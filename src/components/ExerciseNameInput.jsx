@@ -100,7 +100,7 @@ export default function ExerciseNameInput(props) {
       />
       <Show when={open() && matches().length}>
         <ul
-          class="anim-drop absolute inset-x-0 top-full z-20 max-h-[min(50dvh,24rem)] origin-top touch-pan-y overflow-y-auto overscroll-contain border-2 border-t-0 border-ink bg-raised shadow-[4px_4px_0_var(--ink)]"
+          class="anim-drop absolute top-full left-0 z-20 mt-1 w-[max(100%,17rem)] max-h-[min(50dvh,24rem)] origin-top touch-pan-y overflow-y-auto overscroll-contain rounded-xl bg-elevated shadow-[0_10px_40px_rgb(0_0_0/0.2)] ring-[0.5px] ring-black/5"
           role="listbox"
         >
           <For each={matches()}>
@@ -108,12 +108,12 @@ export default function ExerciseNameInput(props) {
               <li role="option">
                 <button
                   type="button"
-                  class="rule flex min-h-12 w-full items-center gap-2 border-b px-3 text-left last:border-b-0 active:bg-sunk"
+                  class="flex min-h-11 w-full items-center gap-2 border-b-[0.5px] border-separator px-4 text-left last:border-b-0 active:bg-fill"
                   onClick={() => choose(option.name)}
                 >
-                  <span class="min-w-0 flex-1 truncate font-medium">{option.name}</span>
+                  <span class="min-w-0 flex-1 truncate">{option.name}</span>
                   <Show when={option.zh}>
-                    <span class="shrink-0 text-sm text-muted">{option.zh}</span>
+                    <span class="t-sub shrink-0 text-label-2">{option.zh}</span>
                   </Show>
                 </button>
               </li>

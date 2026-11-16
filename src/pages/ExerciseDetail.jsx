@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, on, Show, untrack } from 'solid-js';
 import { A, useNavigate, useParams } from '@solidjs/router';
-import { CloudUpload, Pencil, Trash2 } from 'lucide-solid';
+import { ChartLine, ChevronRight, SearchX } from 'lucide-solid';
 import { OfflineError } from '../lib/api';
 import {
   deleteExercise,
@@ -24,7 +24,17 @@ import { toast } from '../lib/toast';
 import { UNITS } from '../lib/units';
 import ExerciseNameInput from '../components/ExerciseNameInput';
 import LineChart from '../components/LineChart';
-import { ChipToggle, ConfirmSheet, EmptyState, PageHeader, Segmented, Sheet, Spinner, StatRow } from '../components/ui';
+import {
+  ChipToggle,
+  ConfirmSheet,
+  EmptyState,
+  PageHeader,
+  Section,
+  Segmented,
+  Sheet,
+  Spinner,
+  StatRow,
+} from '../components/ui';
 
 const DAY = 86_400_000;
 const RANGES = [
@@ -97,7 +107,7 @@ export default function ExerciseDetail() {
     switch (activeMetric()) {
       case 'top': {
         const reps = Math.max(...sets.filter((s) => s.weight === p.y).map((s) => s.reps));
-        return `× ${reps} reps · ${day}`;
+        return `× ${plural(reps, 'rep')} · ${day}`;
       }
       case 'e1rm': {
         const from = sets.find((s) => estimate1RM(s.weight, s.reps) === p.y);
@@ -105,7 +115,7 @@ export default function ExerciseDetail() {
       }
       case 'volume':
       case 'totalReps':
-        return `${sets.length} sets · ${day}`;
+        return `${plural(sets.length, 'set')} · ${day}`;
       default:
         return day;
     }
@@ -145,33 +155,37 @@ export default function ExerciseDetail() {
         title={displayName()}
         actions={
           <Show when={exercise()}>
-            <button class="btn btn-icon -mr-3" aria-label="Edit exercise" onClick={() => setEditing(true)}>
-              <Pencil size={20} />
+            <button type="button" class="btn btn-plain h-11 px-2" onClick={() => setEditing(true)}>
+              Edit
             </button>
           </Show>
         }
       />
 
-      <Show when={exercise()}>
-        <Settings exercise={exercise()} onEdit={() => setEditing(true)} />
-      </Show>
-
       <Show
         when={sessions().length}
         fallback={
-          <Show when={!loading()} fallback={<Spinner class="mx-auto block" />}>
-            <Show
-              when={exercise()}
-              fallback={<EmptyState title="Not found" body="It may have been merged or deleted." />}
-            >
-              <EmptyState title="Nothing logged yet" body="Log this exercise and its progress shows up here." />
-            </Show>
+          <Show when={!loading()} fallback={<Spinner class="mx-auto mt-10 block text-label-2" />}>
+            <div class="card mt-3">
+              <Show
+                when={exercise()}
+                fallback={<EmptyState icon={SearchX} title="Not found" body="It may have been merged or deleted." />}
+              >
+                <EmptyState
+                  icon={ChartLine}
+                  title="Nothing logged yet"
+                  body="Log this exercise and its progress shows up here."
+                />
+              </Show>
+            </div>
           </Show>
         }
       >
-        <StatRow stats={stats()} />
+        <div class="mt-3">
+          <StatRow stats={stats()} />
+        </div>
 
-        <div class="mt-6 grid gap-2">
+        <section class="card mt-6 px-4 pt-3 pb-1" aria-label={`${METRICS[activeMetric()].label} chart`}>
           <Show when={available().length > 1}>
             <Segmented
               label="Chart"
@@ -180,74 +194,69 @@ export default function ExerciseDetail() {
               onChange={setMetric}
             />
           </Show>
-          <div class="flex items-center justify-between gap-2">
-            <ChipToggle
-              label="Time range"
-              value={range()}
-              options={RANGES.map(([k, l]) => [k, l])}
-              onChange={setRange}
-            />
-            <Show when={weighted()}>
-              <ChipToggle label="Unit" value={viewUnit()} options={UNITS.map((u) => [u, u])} onChange={setViewUnit} />
-            </Show>
-          </div>
-        </div>
-
-        <section
-          class="mt-3 border-2 border-ink bg-raised px-3 pt-3 pb-1"
-          aria-label={`${METRICS[activeMetric()].label} chart`}
-        >
           <Show
             when={points().length}
-            fallback={<p class="py-16 text-center text-muted">Nothing logged in this period.</p>}
+            fallback={<p class="t-sub py-16 text-center text-label-2">Nothing logged in this period.</p>}
           >
-            <div class="px-1" aria-live="polite">
-              <p class="eyebrow">{METRICS[activeMetric()].label}</p>
-              <p class="display text-[2.5rem] leading-none">
+            <div class="mt-3" aria-live="polite">
+              <p class="t-foot font-medium text-label-2 uppercase">{METRICS[activeMetric()].label}</p>
+              <p class="num text-[34px] leading-10 font-semibold">
                 {readoutValue()}
-                <span class="ml-1 text-lg text-muted">{readoutUnit()}</span>
+                <span class="ml-1 text-[17px] font-medium text-label-2">{readoutUnit()}</span>
               </p>
-              <p class="mt-1 text-sm text-muted">{detail()}</p>
+              <p class="t-foot text-label-2">{detail()}</p>
             </div>
             <LineChart
               points={points()}
               selected={selIndex()}
               onSelect={setSelected}
-              label={`${METRICS[activeMetric()].label} of ${displayName()} per session, ${points().length} sessions. Use the arrow keys to read each one.`}
+              label={`${METRICS[activeMetric()].label} of ${displayName()} per session, ${plural(points().length, 'session')}. Use the arrow keys to read each one.`}
             />
           </Show>
+          <div class="flex items-center justify-between gap-2 pt-1 pb-3">
+            <ChipToggle
+              label="Time range"
+              value={range()}
+              options={RANGES.map(([k, l]) => [k, l])}
+              onChange={setRange}
+              class="w-36"
+            />
+            <Show when={weighted()}>
+              <ChipToggle label="Unit" value={viewUnit()} options={UNITS.map((u) => [u, u])} onChange={setViewUnit} />
+            </Show>
+          </div>
         </section>
         <Show when={points().length === 1}>
-          <p class="mt-2 text-sm text-muted">Log it again to see a trend.</p>
+          <p class="group-footer">Log it again to see a trend.</p>
         </Show>
+      </Show>
 
-        <h2 class="display mt-8 border-b-2 border-ink pb-1.5 text-xl">History</h2>
-        <ol>
+      <Show when={exercise()}>
+        <Settings exercise={exercise()} onEdit={() => setEditing(true)} />
+      </Show>
+
+      <Show when={sessions().length}>
+        <Section title="History">
           <For each={[...sessions()].reverse()}>
             {(s) => (
-              <li>
-                <A
-                  href={`/workouts/${s.workout_id}`}
-                  class="rule flex items-baseline gap-3 border-b py-3 active:bg-sunk"
-                >
-                  <span class="w-28 shrink-0 text-sm text-muted">{formatDay(s.performed_at)}</span>
-                  <span class="min-w-0 flex-1 font-medium">
+              <A href={`/workouts/${s.workout_id}`} class="row row-tap">
+                <span class="min-w-0 flex-1">
+                  <span class="t-foot block text-label-2">{formatDay(s.performed_at)}</span>
+                  <span class="num block truncate font-medium">
                     {s.sets.map((set) => `${formatWeight(set.original.weight)}×${set.reps}`).join(', ')}
                     <Show when={s.sets.some((set) => set.original.weight > 0)}>
-                      <span class="ml-1 text-sm text-muted">{s.sets[0].original.unit}</span>
+                      <span class="ml-1 text-[14px] font-normal text-label-2">{s.sets[0].original.unit}</span>
                     </Show>
                     <Show when={s.warmups}>
-                      <span class="ml-1 text-sm text-muted">+ {s.warmups} warm-up</span>
+                      <span class="ml-1 text-[14px] font-normal text-label-2">+ {plural(s.warmups, 'warm-up')}</span>
                     </Show>
                   </span>
-                  <Show when={s.pending}>
-                    <CloudUpload size={14} class="shrink-0 text-warn" aria-label="Waiting to sync" />
-                  </Show>
-                </A>
-              </li>
+                </span>
+                <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+              </A>
             )}
           </For>
-        </ol>
+        </Section>
       </Show>
 
       <Show when={exercise()}>
@@ -262,28 +271,45 @@ export default function ExerciseDetail() {
   );
 }
 
-/** The exercise's settings at a glance; empty ones are left out. */
+/** The exercise's settings at a glance (tap to edit). */
 function Settings(props) {
   const e = () => props.exercise;
-  const tags = () =>
-    [
-      e().rep_min || e().rep_max ? `${[e().rep_min, e().rep_max].filter(Boolean).join('–')} reps` : null,
-      e().increment ? `+${formatWeight(e().increment)} ${e().last_unit ?? defaultUnit()} steps` : null,
-      e().rest_seconds != null ? (e().rest_seconds ? `Rest ${formatClock(e().rest_seconds)}` : 'No rest timer') : null,
-    ].filter(Boolean);
+  const reps = () => {
+    const range = [e().rep_min, e().rep_max].filter(Boolean);
+    if (!range.length) return 'Not set';
+    return range.length === 2 ? `${range.join('–')} reps` : plural(range[0], 'rep');
+  };
+  const step = () =>
+    e().increment
+      ? `${formatWeight(e().increment)} ${e().last_unit ?? defaultUnit()}`
+      : `Default (${formatWeight(weightStep(e().last_unit ?? defaultUnit()))})`;
+  const rest = () =>
+    e().rest_seconds == null
+      ? `Default (${restLabel(restSeconds())})`
+      : e().rest_seconds
+        ? formatClock(e().rest_seconds)
+        : 'Off';
+  const row = (label, value) => (
+    <button type="button" class="row row-tap" onClick={() => props.onEdit()}>
+      <span class="flex-1">{label}</span>
+      <span class="row-value num">{value}</span>
+      <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+    </button>
+  );
   return (
-    <Show when={tags().length || e().notes}>
-      <button class="-mt-2 mb-5 block w-full text-left" onClick={() => props.onEdit()} aria-label="Edit settings">
-        <Show when={tags().length}>
-          <span class="flex flex-wrap gap-1.5">
-            <For each={tags()}>{(t) => <span class="tag text-muted">{t}</span>}</For>
-          </span>
-        </Show>
-        <Show when={e().notes}>
-          <span class="mt-2 block border-l-4 border-signal pl-2 text-sm whitespace-pre-wrap">{e().notes}</span>
-        </Show>
-      </button>
-    </Show>
+    <Section
+      title="Settings"
+      footer="You're offered the next weight up once every set reaches the top of the rep range."
+    >
+      {row('Target reps', reps())}
+      {row('Weight step', step())}
+      {row('Rest timer', rest())}
+      <Show when={e().notes}>
+        <button type="button" class="row row-tap items-start" onClick={() => props.onEdit()}>
+          <span class="t-sub flex-1 whitespace-pre-wrap text-label-2">{e().notes}</span>
+        </button>
+      </Show>
+    </Section>
   );
 }
 
@@ -389,122 +415,119 @@ function EditSheet(props) {
   }
 
   const chip = (selected) =>
-    `h-10 border-2 px-3 font-display text-[0.95rem] font-bold tracking-wide uppercase ${selected ? 'border-ink bg-ink text-paper' : 'rule text-muted'}`;
+    `h-8 rounded-full px-3.5 text-[14px] font-medium transition-colors ${selected ? 'bg-accent text-on-accent' : 'bg-fill text-label'}`;
 
   return (
-    <Sheet open={props.open} onClose={() => props.onClose()} title="Edit exercise">
-      <form onSubmit={submit} class="grid gap-4">
-        <label class="grid gap-1">
-          <span class="eyebrow">Name</span>
-          <ExerciseNameInput
-            value={field('name')}
-            onInput={(v) => set('name', v)}
-            suggestions={exerciseOptions()}
-            label="Name"
-          />
-          <Show when={mergeTarget()}>
-            <span class="text-sm text-muted">
-              “{mergeTarget().name}” already exists: saving merges this exercise’s history into it.
-            </span>
-          </Show>
-        </label>
+    <Sheet open={props.open} onClose={() => props.onClose()} title="Edit Exercise">
+      <form onSubmit={submit}>
+        <div class="group overflow-visible">
+          <div class="row rounded-xl">
+            <ExerciseNameInput
+              class="field-inline w-full"
+              value={field('name')}
+              onInput={(v) => set('name', v)}
+              suggestions={exerciseOptions()}
+              label="Name"
+              placeholder="Name"
+            />
+          </div>
+        </div>
+        <Show when={mergeTarget()}>
+          <p class="group-footer">
+            “{mergeTarget().name}” already exists: saving merges this exercise’s history into it.
+          </p>
+        </Show>
 
         <Show when={!mergeTarget()}>
-          <div class="grid gap-1">
-            <span class="eyebrow">Muscle group</span>
-            <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Muscle group">
-              <For each={MUSCLE_GROUPS}>
-                {([key, label]) => (
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={form().muscle_group === key}
-                    class={chip(form().muscle_group === key)}
-                    onClick={() => set('muscle_group', form().muscle_group === key ? null : key)}
-                  >
-                    {label}
-                  </button>
-                )}
-              </For>
-            </div>
+          <p class="group-header">Muscle group</p>
+          <div class="flex flex-wrap gap-1.5 px-1" role="radiogroup" aria-label="Muscle group">
+            <For each={MUSCLE_GROUPS}>
+              {([key, label]) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={form().muscle_group === key}
+                  class={chip(form().muscle_group === key)}
+                  onClick={() => set('muscle_group', form().muscle_group === key ? null : key)}
+                >
+                  {label}
+                </button>
+              )}
+            </For>
           </div>
 
-          <label class="grid gap-1">
-            <span class="eyebrow">Notes</span>
-            <textarea
-              class="field"
-              rows="2"
-              placeholder="Seat height, grip, cues… (shown while logging)"
-              value={field('notes')}
-              onInput={(e) => set('notes', e.currentTarget.value)}
-            />
-          </label>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div class="grid gap-1">
-              <span class="eyebrow">Target reps</span>
-              <div class="flex items-center gap-2">
-                <input
-                  class="field w-full text-center"
-                  inputmode="numeric"
-                  placeholder="8"
-                  aria-label="Minimum reps"
-                  value={field('rep_min')}
-                  onInput={(e) => set('rep_min', e.currentTarget.value.replace(/\D/g, ''))}
-                />
-                <span class="text-muted">–</span>
-                <input
-                  class="field w-full text-center"
-                  inputmode="numeric"
-                  placeholder="12"
-                  aria-label="Maximum reps"
-                  value={field('rep_max')}
-                  onInput={(e) => set('rep_max', e.currentTarget.value.replace(/\D/g, ''))}
-                />
-              </div>
-            </div>
-            <label class="grid gap-1">
-              <span class="eyebrow">Weight step · {unit()}</span>
+          <p class="group-header">Progression</p>
+          <div class="group">
+            <div class="row">
+              <span class="flex-1">Target reps</span>
               <input
-                class="field text-center"
+                class="field-inline num w-12 flex-none text-right"
+                inputmode="numeric"
+                placeholder="8"
+                aria-label="Minimum reps"
+                value={field('rep_min')}
+                onInput={(e) => set('rep_min', e.currentTarget.value.replace(/\D/g, ''))}
+              />
+              <span class="text-label-3">–</span>
+              <input
+                class="field-inline num w-12 flex-none"
+                inputmode="numeric"
+                placeholder="12"
+                aria-label="Maximum reps"
+                value={field('rep_max')}
+                onInput={(e) => set('rep_max', e.currentTarget.value.replace(/\D/g, ''))}
+              />
+            </div>
+            <label class="row">
+              <span class="flex-1">Weight step</span>
+              <input
+                class="field-inline num w-20 flex-none text-right"
                 inputmode="decimal"
                 placeholder={formatWeight(weightStep(unit()))}
                 aria-label="Weight step"
                 value={field('increment')}
                 onInput={(e) => set('increment', e.currentTarget.value)}
               />
+              <span class="text-label-2">{unit()}</span>
             </label>
           </div>
-          <p class="-mt-2 text-sm text-muted">
-            When you reach the top of the rep range on every set, you’ll be offered the next weight up.
-          </p>
+          <p class="group-footer">Reach the top of the range on every set and you're offered the next weight up.</p>
 
-          <div class="grid gap-1">
-            <span class="eyebrow">Rest timer · default {restLabel(restSeconds())}</span>
-            <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Rest timer">
-              <For each={REST_CHOICES}>
-                {(value) => (
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={form().rest_seconds === value}
-                    class={chip(form().rest_seconds === value)}
-                    onClick={() => set('rest_seconds', value)}
-                  >
-                    {restLabel(value)}
-                  </button>
-                )}
-              </For>
-            </div>
+          <p class="group-header">Rest timer</p>
+          <div class="flex flex-wrap gap-1.5 px-1" role="radiogroup" aria-label="Rest timer">
+            <For each={REST_CHOICES}>
+              {(value) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={form().rest_seconds === value}
+                  class={chip(form().rest_seconds === value)}
+                  onClick={() => set('rest_seconds', value)}
+                >
+                  {value == null ? `Default (${restLabel(restSeconds())})` : restLabel(value)}
+                </button>
+              )}
+            </For>
+          </div>
+
+          <p class="group-header">Notes</p>
+          <div class="group">
+            <textarea
+              class="field-inline block min-h-20 w-full px-4 py-3"
+              rows="2"
+              placeholder="Seat height, grip, cues… (shown while logging)"
+              value={field('notes')}
+              onInput={(e) => set('notes', e.currentTarget.value)}
+            />
           </div>
         </Show>
 
         <Show when={mergeTarget() && !online()}>
-          <p class="text-sm text-warn">Merging needs a connection.</p>
+          <p class="group-footer text-warn">Merging needs a connection.</p>
         </Show>
         <button
           type="submit"
-          class="btn btn-lg btn-signal btn-block"
+          class="btn btn-lg btn-primary btn-block mt-6"
           aria-busy={busy()}
           disabled={mergeTarget() && !online()}
         >
@@ -513,11 +536,11 @@ function EditSheet(props) {
         <Show when={!mergeTarget() && props.exercise.times_performed === 0}>
           <button
             type="button"
-            class="btn btn-danger btn-block"
+            class="btn btn-lg btn-block mt-2 bg-card text-bad"
             disabled={!online()}
             onClick={() => setConfirmDelete(true)}
           >
-            <Trash2 size={18} /> Delete exercise
+            Delete Exercise
           </button>
         </Show>
       </form>
@@ -525,8 +548,8 @@ function EditSheet(props) {
         open={confirmDelete()}
         onClose={() => setConfirmDelete(false)}
         onConfirm={remove}
-        title="Delete exercise?"
-        confirmLabel="Delete"
+        title="Delete Exercise?"
+        confirmLabel="Delete Exercise"
         danger
       >
         It hasn't been logged yet. An exercise that a plan uses can't be deleted; remove it from the plan first.

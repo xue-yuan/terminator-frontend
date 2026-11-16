@@ -1,10 +1,13 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
-import { ChevronRight, CloudUpload, Search } from 'lucide-solid';
-import { exerciseList, muscleOf } from '../lib/data';
+import { ChevronRight, Dumbbell, Search, Trash2 } from 'lucide-solid';
+import { deleteExercise, exerciseList, muscleOf } from '../lib/data';
 import { catalogEntry, matchesQuery, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
-import { formatWeight, timeAgo, workingSets } from '../lib/format';
-import { EmptyState, LogTabs, PageHeader } from '../components/ui';
+import { formatWeight, plural, timeAgo, workingSets } from '../lib/format';
+import { online } from '../lib/network';
+import { toast } from '../lib/toast';
+import { SwipeRow } from '../components/SwipeRow';
+import { ConfirmSheet, EmptyState, LogTabs, PageHeader } from '../components/ui';
 
 /** Heaviest set of a session, e.g. "100 kg × 5", or "12 reps" for bodyweight. */
 function topSet(sets, unit) {
@@ -24,6 +27,7 @@ const byRecency = (a, b) =>
 export default function Exercises() {
   const [query, setQuery] = createSignal('');
   const [muscle, setMuscle] = createSignal(null);
+  const [deleting, setDeleting] = createSignal(null);
   const all = createMemo(() =>
     exerciseList()
       .map((e) => ({ ...e, zh: catalogEntry(e.name)?.zh, muscle: muscleOf(e) }))
@@ -33,25 +37,41 @@ export default function Exercises() {
   const list = createMemo(() => all().filter((e) => matchesQuery(e, query()) && (!muscle() || e.muscle === muscle())));
 
   const chip = (selected) =>
-    `h-8 shrink-0 border-2 px-3 font-display text-sm font-bold tracking-wide uppercase ${selected ? 'border-ink bg-ink text-paper' : 'rule text-muted'}`;
+    `h-8 shrink-0 rounded-full px-3.5 text-[14px] font-medium transition-colors ${selected ? 'bg-label text-bg' : 'bg-card text-label'}`;
+
+  async function remove() {
+    const e = deleting();
+    try {
+      await deleteExercise(e.id);
+      toast(`${e.name} deleted`, 'success');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
 
   return (
     <>
-      <PageHeader eyebrow={`${all().length} exercises`} title="Log" />
+      <PageHeader eyebrow={plural(all().length, 'exercise')} title="Log" />
       <LogTabs active="exercises" />
 
       <Show
         when={all().length}
         fallback={
-          <EmptyState title="No exercises yet" body="Every exercise you log gets its own page with a progress chart." />
+          <div class="card mt-4">
+            <EmptyState
+              icon={Dumbbell}
+              title="No exercises yet"
+              body="Every exercise you log gets its own page with a progress chart."
+            />
+          </div>
         }
       >
-        <label class="relative block">
-          <Search size={18} class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
+        <label class="relative mt-3 block">
+          <Search size={18} class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-label-2" />
           <input
             type="search"
-            class="field pl-10"
-            placeholder="Search exercises"
+            class="field h-10 bg-fill pl-9"
+            placeholder="Search"
             aria-label="Search exercises"
             value={query()}
             onInput={(e) => setQuery(e.currentTarget.value)}
@@ -60,16 +80,23 @@ export default function Exercises() {
 
         <Show when={groups().length > 1}>
           <div
-            class="no-scrollbar -mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5"
+            class="no-scrollbar -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4"
             role="radiogroup"
             aria-label="Muscle group"
           >
-            <button role="radio" aria-checked={!muscle()} class={chip(!muscle())} onClick={() => setMuscle(null)}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!muscle()}
+              class={chip(!muscle())}
+              onClick={() => setMuscle(null)}
+            >
               All
             </button>
             <For each={groups()}>
               {([key, label]) => (
                 <button
+                  type="button"
                   role="radio"
                   aria-checked={muscle() === key}
                   class={chip(muscle() === key)}
@@ -82,8 +109,8 @@ export default function Exercises() {
           </div>
         </Show>
 
-        <ul class="mt-4 border-t-2 border-ink">
-          <For each={list()} fallback={<li class="py-6 text-muted">Nothing matches.</li>}>
+        <div class="group mt-4">
+          <For each={list()} fallback={<p class="row text-label-2">Nothing matches.</p>}>
             {(e) => {
               const top = () => topSet(workingSets(e.last_sets), e.last_unit);
               const subtitle = () =>
@@ -94,38 +121,50 @@ export default function Exercises() {
                 ]
                   .filter(Boolean)
                   .join(' · ');
+              const row = (
+                <A href={`/exercises/${e.id}`} class="row row-tap">
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate">{e.name}</p>
+                    <p class="t-foot truncate text-label-2">{subtitle()}</p>
+                  </div>
+                  <Show when={top()}>
+                    <p class="num t-sub shrink-0 text-right font-semibold">
+                      {top().value}
+                      <span class="ml-0.5 text-[12px] font-medium text-label-2">{top().unit}</span>
+                      <Show when={top().reps}>
+                        <span class="text-[12px] font-medium text-label-2"> × {top().reps}</span>
+                      </Show>
+                    </p>
+                  </Show>
+                  <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+                </A>
+              );
+              // Only an exercise that was never logged can be deleted.
               return (
-                <li>
-                  <A href={`/exercises/${e.id}`} class="rule flex items-center gap-3 border-b py-3.5 active:bg-sunk">
-                    <div class="min-w-0 flex-1">
-                      <p class="flex items-center gap-1.5 truncate text-[1.05rem] font-semibold">
-                        <span class="truncate">{e.name}</span>
-                        <Show when={e.pending}>
-                          <CloudUpload size={14} class="shrink-0 text-warn" aria-label="Waiting to sync" />
-                        </Show>
-                      </p>
-                      <p class="truncate text-sm text-muted">{subtitle()}</p>
-                    </div>
-                    <Show when={top()}>
-                      <div class="shrink-0 text-right">
-                        <p class="display text-lg leading-none">
-                          {top().value}
-                          <span class="ml-0.5 text-xs text-muted">{top().unit}</span>
-                          <Show when={top().reps}>
-                            <span class="text-xs text-muted"> × {top().reps}</span>
-                          </Show>
-                        </p>
-                        <p class="mt-1 text-xs text-muted">last top set</p>
-                      </div>
-                    </Show>
-                    <ChevronRight size={18} class="shrink-0 text-muted" />
-                  </A>
-                </li>
+                <Show when={e.times_performed === 0 && online()} fallback={row}>
+                  <SwipeRow
+                    fullSwipe={false}
+                    actions={[{ label: 'Delete', icon: Trash2, tone: 'bad', onAction: () => setDeleting(e) }]}
+                  >
+                    {row}
+                  </SwipeRow>
+                </Show>
               );
             }}
           </For>
-        </ul>
+        </div>
       </Show>
+
+      <ConfirmSheet
+        open={!!deleting()}
+        onClose={() => setDeleting(null)}
+        onConfirm={remove}
+        title={`Delete ${deleting()?.name ?? 'exercise'}?`}
+        confirmLabel="Delete Exercise"
+        danger
+      >
+        It hasn't been logged yet. An exercise that a plan uses can't be deleted; remove it from the plan first.
+      </ConfirmSheet>
     </>
   );
 }

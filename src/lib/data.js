@@ -100,24 +100,91 @@ export const exercises = cachedQuery(documentCache('exercises'), () => api('/exe
 /** Your weigh-ins, newest first. */
 export const bodyWeights = cachedQuery(documentCache('bodyWeights'), () => api('/body-weights/'));
 
-/** Any of the above being fetched (the loading bar at the top). */
-export const fetching = () => [workouts, plans, summary, exercises, bodyWeights].some((q) => q.loading());
+const QUERIES = { workouts, plans, summary, exercises, body_weights: bodyWeights };
 
-let lastRefresh = 0;
-export function refreshAll({ force = false } = {}) {
-  if (!force && Date.now() - lastRefresh < 15_000) return;
-  lastRefresh = Date.now();
-  return Promise.all([
-    workouts.refresh(),
-    plans.refresh(),
-    summary.refresh(),
-    exercises.refresh(),
-    bodyWeights.refresh(),
-    refreshSpotifyStatus(),
+/**
+ * Something is loading with nothing cached to show yet (the loading bar at the
+ * top). Refreshing data that is already on screen happens silently.
+ */
+export const firstLoad = () => Object.values(QUERIES).some((q) => q.loading() && q.data() == null);
+
+// Fingerprints (GET /sync/state) of what the device has: each kind is fetched
+// again only when the server's fingerprint moved, so coming back to the app is
+// one small request rather than downloading everything.
+let seen = load('cache:syncState') ?? {}; // a 'cache:' key: dropped along with the caches
+const today = () => new Date().toDateString();
+const remember = (kind, fingerprint) => {
+  seen = { ...seen, [kind]: fingerprint };
+  save('cache:syncState', seen);
+};
+
+const FETCH = {
+  ...Object.fromEntries(
+    Object.entries(QUERIES).map(([kind, q]) => [
+      kind,
+      async () => {
+        await q.refresh();
+        return !q.error();
+      },
+    ]),
+  ),
+  spotify: async () => {
+    await refreshSpotifyStatus();
+    return true;
+  },
+  user: () =>
     api('/users/me')
       .then(updateUser)
-      .catch(() => {}),
-  ]);
+      .then(() => true)
+      .catch(() => false),
+};
+
+let lastCheck = 0;
+let checking = null;
+/** Fetch whatever changed on the server (everything with `force`). */
+export function refreshAll({ force = false } = {}) {
+  if (checking) return checking;
+  if (!force && Date.now() - lastCheck < 30_000) return Promise.resolve();
+  lastCheck = Date.now();
+  checking = (async () => {
+    let state;
+    try {
+      state = await api('/sync/state');
+    } catch (err) {
+      if (err instanceof OfflineError) return; // try again next time
+      state = null; // a server without fingerprints (older deploy): fetch everything
+    }
+    // The summary's week and streak also move with the calendar.
+    if (seen.summaryDay !== today()) delete seen.summary;
+    await Promise.all(
+      Object.keys(FETCH)
+        .filter(
+          (kind) => force || !state || state[kind] !== seen[kind] || (QUERIES[kind] && QUERIES[kind].data() == null),
+        )
+        .map(async (kind) => {
+          if (!(await FETCH[kind]()) || !state) return;
+          remember(kind, state[kind]);
+          if (kind === 'summary') remember('summaryDay', today());
+        }),
+    );
+  })().finally(() => {
+    checking = null;
+  });
+  return checking;
+}
+
+/**
+ * After this device's own changes reached the server and the caches were
+ * updated from the answers, take the new fingerprints of those kinds as seen,
+ * so the next check doesn't download them again.
+ */
+async function adoptFingerprints(kinds) {
+  try {
+    const state = await api('/sync/state');
+    for (const kind of kinds) remember(kind, state[kind]);
+  } catch {
+    /* the next check will simply refetch them */
+  }
 }
 
 // ---- derived views (server data with unsynced local changes on top) ----------
@@ -310,8 +377,8 @@ onRejected('exercise', (entry, err) => {
 
 // ---- body weight (works offline) ---------------------------------------------------
 
-export function logBodyWeight({ weight, unit, measured_at = new Date().toISOString() }) {
-  queue('bodyWeight', uuid(), 'upsert', { measured_at, weight, unit });
+export function logBodyWeight({ id = uuid(), weight, unit, measured_at = new Date().toISOString() }) {
+  queue('bodyWeight', id, 'upsert', { measured_at, weight, unit });
 }
 
 export function deleteBodyWeight(id) {
@@ -357,9 +424,10 @@ function rememberSets(workout) {
   });
 }
 
-onSynced((results) => {
+onSynced(async (results) => {
   const synced = (type) => results.filter((r) => r.entry.type === type);
   const done = synced('workout');
+  const refreshing = [];
   if (done.length) {
     workouts.update((list) => {
       let next = list ?? [];
@@ -378,7 +446,7 @@ onSynced((results) => {
       });
     }
     applyToProgress(done);
-    summary.refresh();
+    refreshing.push(summary.refresh());
   }
   // Put saved exercises in the cache right away: once their queue entry is gone,
   // the cache is all that shows them until the refresh below returns.
@@ -390,7 +458,7 @@ onSynced((results) => {
       return [...byId.values()];
     });
   }
-  if (done.length || savedExercises.length) exercises.refresh();
+  if (done.length || savedExercises.length) refreshing.push(exercises.refresh());
 
   const weighIns = synced('bodyWeight');
   if (weighIns.length) {
@@ -403,6 +471,13 @@ onSynced((results) => {
       return [...byId.values()].sort((a, b) => Date.parse(b.measured_at) - Date.parse(a.measured_at));
     });
   }
+  await Promise.all(refreshing);
+  const kinds = [
+    ...(done.length ? ['workouts', 'summary', 'exercises'] : []),
+    ...(savedExercises.length ? ['exercises'] : []),
+    ...(weighIns.length ? ['body_weights'] : []),
+  ];
+  if (kinds.length) adoptFingerprints(kinds);
 });
 
 // ---- per-exercise progress (charts) ---------------------------------------------

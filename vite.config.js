@@ -3,7 +3,7 @@ import solid from 'vite-plugin-solid';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const PAPER = '#f2f0ea';
+const PAPER = '#f2f2f7';
 const apiProxy = { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true } };
 
 export default defineConfig({

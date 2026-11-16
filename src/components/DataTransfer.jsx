@@ -10,7 +10,7 @@ import { toast } from '../lib/toast';
 import { UNITS } from '../lib/units';
 import { ChipToggle, Sheet, Spinner } from './ui';
 
-/** Back up, export as CSV, and import (our backups and CSV, Strong, Hevy). */
+/** Back up, export as CSV, and import (our backups and CSV, Strong, Hevy). Rows for a grouped section. */
 export default function DataTransfer() {
   const [busy, setBusy] = createSignal(null); // 'json' | 'csv'
   const [file, setFile] = createSignal(null); // { name, text }
@@ -38,22 +38,39 @@ export default function DataTransfer() {
     if (chosen) setFile({ name: chosen.name, text: await chosen.text() });
   }
 
+  const row = 'row row-tap text-accent disabled:opacity-40';
   return (
-    <div class="grid gap-2 py-4">
-      <button class="btn btn-block" disabled={!online() || !!busy()} onClick={() => exportAs('json')}>
-        <Show when={busy() === 'json'} fallback={<HardDriveDownload size={18} />}>
-          <Spinner class="h-4 w-4" />
+    <>
+      <button type="button" class={row} disabled={!online() || !!busy()} onClick={() => exportAs('json')}>
+        <Show when={busy() === 'json'} fallback={<HardDriveDownload size={20} class="w-6" />}>
+          <span class="w-6">
+            <Spinner class="h-4 w-4" />
+          </span>
         </Show>
-        Back up everything (JSON)
+        Back Up Everything (JSON)
       </button>
-      <button class="btn btn-block" disabled={!online() || !!busy()} onClick={() => exportAs('csv')}>
-        <Show when={busy() === 'csv'} fallback={<FileSpreadsheet size={18} />}>
-          <Spinner class="h-4 w-4" />
+      <button
+        type="button"
+        class={row}
+        style={{ '--sep-inset': '3.25rem' }}
+        disabled={!online() || !!busy()}
+        onClick={() => exportAs('csv')}
+      >
+        <Show when={busy() === 'csv'} fallback={<FileSpreadsheet size={20} class="w-6" />}>
+          <span class="w-6">
+            <Spinner class="h-4 w-4" />
+          </span>
         </Show>
-        Export workouts (CSV)
+        Export Workouts (CSV)
       </button>
-      <button class="btn btn-block" disabled={!online()} onClick={() => input.click()}>
-        <FileUp size={18} /> Import…
+      <button
+        type="button"
+        class={row}
+        style={{ '--sep-inset': '3.25rem' }}
+        disabled={!online()}
+        onClick={() => input.click()}
+      >
+        <FileUp size={20} class="w-6" /> Import…
       </button>
       <input
         ref={input}
@@ -63,13 +80,8 @@ export default function DataTransfer() {
         aria-label="File to import"
         onChange={pick}
       />
-      <p class="text-sm text-muted">
-        Import a Terminator backup or CSV, or a CSV exported from Strong or Hevy. Importing the same file again updates
-        instead of duplicating.
-        <Show when={!online()}> Needs a connection.</Show>
-      </p>
       <ImportSheet file={file()} onClose={() => setFile(null)} />
-    </div>
+    </>
   );
 }
 
@@ -107,34 +119,42 @@ function ImportSheet(props) {
   return (
     <Sheet open={!!props.file} onClose={() => !progress() && props.onClose()} title="Import">
       <Show when={parsed()}>
-        <Show when={!parsed().error} fallback={<p class="text-bad">{parsed().error}</p>}>
-          <p class="eyebrow">{source()}</p>
-          <p class="display mt-1 text-3xl">
-            {info().workouts} workouts
-            <span class="ml-2 text-lg text-muted">· {info().sets} sets</span>
+        <Show
+          when={!parsed().error}
+          fallback={<p class="t-sub rounded-xl bg-card px-4 py-3 text-bad">{parsed().error}</p>}
+        >
+          <p class="t-foot font-semibold text-label-2 uppercase">{source()}</p>
+          <p class="t-title2 mt-0.5">
+            {plural(info().workouts, 'workout')}
+            <span class="ml-2 text-[17px] font-normal text-label-2">· {plural(info().sets, 'set')}</span>
           </p>
           <Show when={info().from}>
-            <p class="mt-1 text-muted">
-              {formatDay(info().from)} – {formatDay(info().to)} · {info().exercises} exercises
+            <p class="t-sub mt-1 text-label-2">
+              {formatDay(info().from)} – {formatDay(info().to)} · {plural(info().exercises, 'exercise')}
             </p>
           </Show>
           <Show when={info().plans || info().bodyWeights}>
-            <p class="mt-1 text-muted">
+            <p class="t-sub mt-1 text-label-2">
               {plural(info().plans, 'plan')} · {plural(info().bodyWeights, 'weigh-in')}
             </p>
           </Show>
           <Show when={parsed().skipped}>
-            <p class="mt-2 text-sm text-muted">
+            <p class="t-foot mt-2 text-label-2">
               {plural(parsed().skipped, 'row')} without reps (e.g. cardio) left out.
             </p>
           </Show>
           <Show when={parsed().format === 'strong'}>
-            <div class="mt-4 flex items-center justify-between gap-3">
-              <p class="text-sm">Weights in this file are in</p>
+            <div class="row mt-4 rounded-xl">
+              <p class="flex-1">Weights in this file are in</p>
               <ChipToggle label="Unit" value={unit()} options={UNITS.map((u) => [u, u])} onChange={setUnit} />
             </div>
           </Show>
-          <button class="btn btn-lg btn-signal btn-block mt-5" disabled={!!progress() || !online()} onClick={run}>
+          <button
+            type="button"
+            class="btn btn-lg btn-primary btn-block mt-6"
+            disabled={!!progress() || !online()}
+            onClick={run}
+          >
             <Show when={progress()} fallback="Import">
               <Spinner class="h-4 w-4" /> {progress().done} / {progress().total}
             </Show>

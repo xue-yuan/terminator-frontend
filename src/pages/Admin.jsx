@@ -1,11 +1,12 @@
 import { createResource, createSignal, For, Show } from 'solid-js';
-import { ShieldCheck, Trash2, UserCheck, UserPlus } from 'lucide-solid';
+import { CloudOff, ShieldCheck, Trash2, TriangleAlert, UserCheck, UserPlus } from 'lucide-solid';
 import { isAdmin } from '../lib/auth';
 import { allowEmail, readAccess, removeEmail } from '../lib/data';
 import { formatDay } from '../lib/format';
 import { online } from '../lib/network';
 import { toast } from '../lib/toast';
-import { ConfirmSheet, EmptyState, PageHeader, Spinner } from '../components/ui';
+import { SwipeRow } from '../components/SwipeRow';
+import { ConfirmSheet, EmptyState, PageHeader, Section, Spinner } from '../components/ui';
 
 /** Admins (ADMIN_EMAILS on the server) choose who else may use the app. */
 export default function Admin() {
@@ -41,88 +42,109 @@ export default function Admin() {
 
   return (
     <>
-      <PageHeader back="/profile" eyebrow="Admin" title="Access" />
-      <Show when={isAdmin()} fallback={<EmptyState title="Admins only" body="This page is for the app's admins." />}>
+      <PageHeader
+        back="/profile"
+        backLabel="You"
+        title="Access"
+        actions={
+          <Show when={isAdmin() && online() && access()}>
+            <button type="button" class="btn btn-plain h-11 px-2" aria-busy={access.loading} onClick={refetch}>
+              Refresh
+            </button>
+          </Show>
+        }
+      />
+      <Show
+        when={isAdmin()}
+        fallback={
+          <div class="card mt-3">
+            <EmptyState icon={ShieldCheck} title="Admins only" body="This page is for the app's admins." />
+          </div>
+        }
+      >
         <Show
           when={online()}
-          fallback={<EmptyState title="You're offline" body="Managing access needs a connection." />}
+          fallback={
+            <div class="card mt-3">
+              <EmptyState icon={CloudOff} title="You're offline" body="Managing access needs a connection." />
+            </div>
+          }
         >
-          <Show when={access()} fallback={<Spinner class="mx-auto block" />}>
+          <Show when={access()} fallback={<Spinner class="mx-auto mt-10 block text-label-2" />}>
             <Show when={!access().restricted}>
-              <p class="mb-4 border-l-4 border-warn bg-sunk px-3 py-2 text-sm">
+              <p class="t-sub mt-3 flex items-start gap-2 rounded-xl bg-card px-4 py-3">
+                <TriangleAlert size={18} class="mt-0.5 shrink-0 text-warn" />
                 Anyone with a Google account can sign in: no ADMIN_EMAILS are set on the server.
               </p>
             </Show>
 
-            <form onSubmit={add} class="flex gap-2">
-              <input
-                type="email"
-                class="field min-w-0 flex-1"
-                placeholder="name@gmail.com"
-                aria-label="Email to let in"
-                autocomplete="off"
-                autocapitalize="none"
-                value={email()}
-                readOnly={busy()}
-                onInput={(e) => setEmail(e.currentTarget.value)}
-              />
-              <button type="submit" class="btn btn-signal" aria-busy={busy()} disabled={busy() || !email().trim()}>
-                <UserPlus size={18} /> Add
-              </button>
+            <form onSubmit={add}>
+              <Section
+                title="Let someone in"
+                footer="They sign in with Google using this address. Removing someone signs them out."
+              >
+                <div class="row !py-1.5 !pr-1.5">
+                  <input
+                    type="email"
+                    class="field-inline"
+                    placeholder="name@gmail.com"
+                    aria-label="Email to let in"
+                    autocomplete="off"
+                    autocapitalize="none"
+                    value={email()}
+                    readOnly={busy()}
+                    onInput={(e) => setEmail(e.currentTarget.value)}
+                  />
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-primary"
+                    aria-busy={busy()}
+                    disabled={busy() || !email().trim()}
+                  >
+                    <UserPlus size={16} /> Add
+                  </button>
+                </div>
+              </Section>
             </form>
-            <p class="mt-2 text-sm text-muted">
-              They sign in with Google using this address. Removing someone signs them out.
-            </p>
 
-            <h2 class="display mt-8 border-b-2 border-ink pb-1.5 text-xl">Admins</h2>
-            <ul>
+            <Section title="Admins" footer="Set on the server (ADMIN_EMAILS).">
               <For each={access().admins}>
                 {(admin) => (
-                  <li class="rule flex items-center gap-3 border-b py-3">
-                    <ShieldCheck size={18} class="shrink-0 text-signal" />
-                    <span class="min-w-0 flex-1 truncate font-medium">{admin}</span>
-                    <span class="text-xs text-muted">set on the server</span>
-                  </li>
+                  <div class="row" style={{ '--sep-inset': '3.25rem' }}>
+                    <ShieldCheck size={20} class="w-6 shrink-0 text-accent" />
+                    <span class="min-w-0 flex-1 truncate">{admin}</span>
+                  </div>
                 )}
               </For>
-            </ul>
+            </Section>
 
-            <h2 class="display mt-8 border-b-2 border-ink pb-1.5 text-xl">Can use the app</h2>
-            <ul>
-              <For each={access().allowed} fallback={<li class="py-4 text-muted">Nobody else yet.</li>}>
+            <Section
+              title="Can use the app"
+              footer={access().allowed.length ? 'Swipe someone left to remove them.' : null}
+            >
+              <For each={access().allowed} fallback={<p class="row text-label-2">Nobody else yet.</p>}>
                 {(entry) => (
-                  <li class="rule flex items-center gap-3 border-b py-3">
-                    <UserCheck
-                      size={18}
-                      class="shrink-0"
-                      classList={{ 'text-ok': entry.signed_up, 'text-muted': !entry.signed_up }}
-                    />
-                    <span class="min-w-0 flex-1">
-                      <span class="block truncate font-medium">{entry.email}</span>
-                      <span class="block text-xs text-muted">
-                        {entry.signed_up ? 'Signed in' : 'Not signed in yet'} · added {formatDay(entry.added_at)}
+                  <SwipeRow
+                    fullSwipe={false}
+                    actions={[{ label: 'Remove', icon: Trash2, tone: 'bad', onAction: () => setRemoving(entry.email) }]}
+                  >
+                    <div class="row" style={{ '--sep-inset': '3.25rem' }}>
+                      <UserCheck
+                        size={20}
+                        class="w-6 shrink-0"
+                        classList={{ 'text-ok': entry.signed_up, 'text-label-3': !entry.signed_up }}
+                      />
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate">{entry.email}</span>
+                        <span class="t-foot block text-label-2">
+                          {entry.signed_up ? 'Signed in' : 'Not signed in yet'} · added {formatDay(entry.added_at)}
+                        </span>
                       </span>
-                    </span>
-                    <button
-                      type="button"
-                      class="btn btn-icon -mr-3 text-muted"
-                      aria-label={`Remove ${entry.email}`}
-                      onClick={() => setRemoving(entry.email)}
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </li>
+                    </div>
+                  </SwipeRow>
                 )}
               </For>
-            </ul>
-            <button
-              type="button"
-              class="btn btn-quiet btn-block mt-4 text-muted"
-              aria-busy={access.loading}
-              onClick={refetch}
-            >
-              Refresh
-            </button>
+            </Section>
           </Show>
         </Show>
       </Show>
@@ -131,7 +153,7 @@ export default function Admin() {
         open={!!removing()}
         onClose={() => setRemoving(null)}
         onConfirm={() => remove(removing())}
-        title="Remove access?"
+        title="Remove Access?"
         confirmLabel="Remove"
         danger
       >

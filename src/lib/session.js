@@ -27,9 +27,20 @@ import { uuid } from './uuid';
 //   }]
 // }
 // Set fields are strings while editing so partial input like "72." survives.
+// A workout started hours ago with nothing logged was left open by accident.
+const STALE_MS = 4 * 3600 * 1000;
+const isStale = (d) =>
+  d.mode === 'new' &&
+  !d.exercises.some((ex) => ex.sets.some((s) => s.done)) &&
+  Date.now() - Date.parse(d.startedAt) > STALE_MS;
+
 function loadDraft() {
   const saved = load('draft');
   if (!saved) return null;
+  if (isStale(saved)) {
+    save('draft', null);
+    return null;
+  }
   // drafts saved by older versions
   saved.focus ??= { ex: 0, set: 0 };
   for (const ex of saved.exercises) {
@@ -62,6 +73,11 @@ function setDraft(...args) {
 
 export const draft = () => state.draft;
 export const updateDraft = setDraft;
+
+// The app can stay open for days: check again whenever it comes back.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.draft && isStale(state.draft)) setDraft(null);
+});
 
 /** A1/A2... label of each exercise in the draft (null when not in a superset). */
 export const draftLabels = createRoot(() =>
@@ -312,6 +328,18 @@ export function removeExercise(i) {
   else setDraft('focus', { ex: 0, set: 0 });
 }
 
+/** Put a removed exercise back where it was (undo). */
+export function restoreExercise(i, exercise) {
+  setDraft(
+    'exercises',
+    produce((list) => {
+      list.splice(Math.min(i, list.length), 0, structuredClone(unwrap(exercise)));
+      normalizeGroups(list);
+    }),
+  );
+  focusExercise(Math.min(i, state.draft.exercises.length - 1));
+}
+
 export function moveExercise(i, delta) {
   const j = i + delta;
   if (j < 0 || j >= state.draft.exercises.length) return;
@@ -345,6 +373,10 @@ export function applyHistoryHints(i) {
 // ---- sets -----------------------------------------------------------------------------
 
 const isBlank = (set) => !set.done && !set.weight && !set.reps && !set.rpe;
+
+const present = (v) => v != null && v !== '';
+/** Whether a set came with suggested numbers (last time's, the plan's or the next step up). */
+const hasHint = (set) => present(set.hint?.weight) || present(set.hint?.reps);
 
 const lastWorkingSet = (ex) => ex?.sets.findLast((s) => !isWarmup(s)) ?? null;
 
@@ -416,6 +448,13 @@ export function removeSet(i, j) {
   setDraft('exercises', i, 'sets', (list) => list.filter((_, k) => k !== j));
   const ex = state.draft.exercises[i];
   setDraft('focus', { ex: i, set: firstOpenSet(ex) });
+}
+
+/** Put a removed set back where it was (undo). */
+export function restoreSet(i, j, set) {
+  if (!state.draft.exercises[i]) return;
+  setDraft('exercises', i, 'sets', (list) => [...list.slice(0, j), structuredClone(unwrap(set)), ...list.slice(j)]);
+  setDraft('focus', { ex: i, set: firstOpenSet(state.draft.exercises[i]) });
 }
 
 /** +/- buttons: start from the typed value, else the hint, else 0. */
@@ -491,6 +530,9 @@ export function logSet(i, j) {
   const filled = { ...set, weight: effectiveValue(ex, set, 'weight'), reps: effectiveValue(ex, set, 'reps') };
   const problem = setProblem(filled);
   if (problem) return problem;
+  // Numbers you changed from what was suggested (or chose with no suggestion at all).
+  const differs = (field) => parseNumber(filled[field]) !== parseNumber(hintValue(ex, set, field));
+  const adjusted = !hasHint(set) || differs('weight') || differs('reps');
 
   // Store normalised numbers ("65,5" -> "65.5") so hints carried forward stay valid.
   const norm = (v) => (v === '' ? '' : String(parseNumber(v)));
@@ -501,11 +543,19 @@ export function logSet(i, j) {
   if (state.draft.mode === 'new' && !state.draft.timeEdited) setDraft('exercises', i, 'sets', j, 'pr', recordsOf(i, j));
 
   // Sets are usually the same, so the next one starts as a copy of this one:
-  // log it as is or adjust it with − / +. Never overwrites typed numbers, and a
-  // warm-up's numbers never carry into a working set.
+  // log it as is or adjust it with − / +. A set with a suggestion of its own
+  // keeps it (warm-ups ramp up; last time's sets may differ), unless you just
+  // changed a working set's numbers: then the next one follows. Never
+  // overwrites typed numbers, and a warm-up's numbers never carry into a working set.
   const sets = state.draft.exercises[i].sets;
   const next = sets.findIndex((s, k) => k > j && !s.done);
-  if (next !== -1 && isBlank(sets[next]) && sets[next].kind === set.kind) {
+  const target = sets[next];
+  if (
+    next !== -1 &&
+    isBlank(target) &&
+    target.kind === set.kind &&
+    (!hasHint(target) || (adjusted && !isWarmup(set)))
+  ) {
     setDraft('exercises', i, 'sets', next, { weight: filled.weight, reps: filled.reps });
   }
   const { focus, rest } = nextAfterLog(i);

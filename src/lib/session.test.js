@@ -177,6 +177,39 @@ describe('warm-up sets', () => {
     data.exercises.set([]);
   });
 
+  it("keep each set's own numbers from last time when logged as suggested", () => {
+    data.exercises.set([
+      {
+        id: crypto.randomUUID(),
+        name: 'Hack Squat', // not used by other tests
+        last_unit: 'lb',
+        last_performed_at: '2026-11-10T08:00:00Z',
+        last_sets: [
+          { weight: 45, reps: 10, kind: 'warmup' },
+          { weight: 135, reps: 5, kind: 'warmup' },
+          { weight: 185, reps: 8, kind: 'working' },
+          { weight: 165, reps: 10, kind: 'working' },
+          { weight: 145, reps: 12, kind: 'working' },
+        ],
+      },
+    ]);
+    s.startWorkout({ planDay: squatDay(3, 'Hack Squat', [8, 12]) });
+    const shown = (j) => ['weight', 'reps'].map((f) => s.effectiveValue(s.draft().exercises[0], set(0, j), f));
+
+    s.logSet(0, 0); // 45 × 10
+    expect(shown(1)).toEqual(['135', '5']); // the ramp goes on
+    type(0, 1, 'weight', '155'); // a changed warm-up still leaves the working sets alone
+    s.logSet(0, 1);
+    expect(shown(2)).toEqual(['185', '8']);
+
+    s.logSet(0, 2); // as suggested: the drop set keeps last time's numbers
+    expect(shown(3)).toEqual(['165', '10']);
+    type(0, 3, 'weight', '170'); // changed: the next one follows
+    s.logSet(0, 3);
+    expect(set(0, 4)).toMatchObject({ weight: '170', reps: '10' });
+    data.exercises.set([]);
+  });
+
   it('can be turned into a working set and back', () => {
     s.startWorkout({ planDay: squatDay(1) });
     s.toggleWarmup(0, 0);

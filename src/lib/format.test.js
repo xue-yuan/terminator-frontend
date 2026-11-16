@@ -4,6 +4,7 @@ import {
   describeTarget,
   formatClock,
   formatDuration,
+  plural,
   setCount,
   setLabel,
   supersetLabels,
@@ -25,6 +26,13 @@ describe('formatting', () => {
   it('describes targets and durations', () => {
     expect(describeTarget({ target_sets: 3, target_reps_min: 8, target_reps_max: 12 })).toBe('3 × 8–12');
     expect(describeTarget({ target_sets: 5, target_reps_min: 5, target_reps_max: 5 })).toBe('5 × 5');
+    expect(describeTarget({ target_sets: 1 })).toBe('1 set');
+    expect(describeTarget({ target_reps_min: 1, target_reps_max: 1 })).toBe('1 rep');
+    expect(describeTarget({ target_reps_min: 8, target_reps_max: 12 })).toBe('8–12 reps');
+    expect(plural(1, 'set')).toBe('1 set');
+    expect(plural('1', 'rep')).toBe('1 rep'); // typed numbers are strings
+    expect(plural(0, 'set')).toBe('0 sets');
+    expect(plural(2, 'new PR', 'new PRs')).toBe('2 new PRs');
     expect(formatDuration(3720)).toBe('1h 02m');
     expect(formatDuration(20)).toBe('1 min');
     expect(formatClock(3725)).toBe('1:02:05');

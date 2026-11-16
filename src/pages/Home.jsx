@@ -1,22 +1,21 @@
 import { createSignal, For, Show } from 'solid-js';
-import { A, useNavigate } from '@solidjs/router';
-import { ArrowRight, Play } from 'lucide-solid';
-import { currentUser } from '../lib/auth';
+import { A } from '@solidjs/router';
+import { ChevronRight, Dumbbell, Play } from 'lucide-solid';
 import { summary, workoutList } from '../lib/data';
-import { describeTarget, formatClock } from '../lib/format';
+import { describeTarget, formatClock, plural } from '../lib/format';
 import { useNow } from '../lib/now';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
 import { totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
 import { useStart } from '../components/StartSheet';
-import { PageHeader, SectionTitle, StatRow } from '../components/ui';
+import { EmptyState, PageHeader, SectionTitle, StatRow } from '../components/ui';
 import ExerciseNumber from '../components/ExerciseNumber';
 import WeekStrip from '../components/WeekStrip';
-import WorkoutRow from '../components/WorkoutRow';
+import { WorkoutList } from '../components/WorkoutRow';
 
 const today = () => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
 export default function Home() {
-  const { openSheet, startDay } = useStart();
+  const { openSheet, startDay, resume } = useStart();
   const s = () => summary.data();
   const plan = () => s()?.active_plan;
   const [picked, setPicked] = createSignal(null);
@@ -24,18 +23,17 @@ export default function Home() {
     const days = plan()?.days ?? [];
     return days.find((d) => d.id === (picked() ?? s()?.next_plan_day_id)) ?? days[0];
   };
-  const firstName = () => (currentUser()?.full_name ?? '').split(' ')[0];
 
   return (
     <>
-      <PageHeader eyebrow={today()} title={firstName() ? `Hi, ${firstName()}` : 'Today'} />
+      <PageHeader eyebrow={today()} title="Today" />
 
       <WeekStrip />
-      <div class="mt-4">
+      <div class="mt-3">
         <StatRow
           stats={[
             { label: 'This week', value: workoutsThisWeek() },
-            { label: 'Week streak', value: weekStreak() },
+            { label: 'Streak', value: weekStreak(), unit: weekStreak() === 1 ? 'week' : 'weeks' },
             { label: 'Total', value: totalWorkouts() },
           ]}
         />
@@ -54,43 +52,54 @@ export default function Home() {
           />
         }
       >
-        <InProgress />
+        <InProgress onResume={resume} />
       </Show>
 
       <SectionTitle
         action={
           <Show when={workoutList().length > 3}>
-            <A href="/history" class="eyebrow !text-ink">
-              All →
+            <A href="/history" class="text-[17px] text-accent">
+              See All
             </A>
           </Show>
         }
       >
         Recent
       </SectionTitle>
-      <Show when={workoutList().length} fallback={<p class="py-6 text-muted">Finished workouts show up here.</p>}>
-        <For each={workoutList().slice(0, 4)}>{(w) => <WorkoutRow workout={w} />}</For>
+      <Show
+        when={workoutList().length}
+        fallback={
+          <div class="group">
+            <EmptyState icon={Dumbbell} title="No workouts yet" body="Finished workouts show up here." />
+          </div>
+        }
+      >
+        <WorkoutList workouts={workoutList().slice(0, 4)} />
       </Show>
     </>
   );
 }
 
-function InProgress() {
-  const navigate = useNavigate();
+function InProgress(props) {
   const now = useNow();
   return (
-    <section class="mt-8 border-2 border-ink bg-ink p-5 text-paper">
-      <p class="eyebrow flex items-center gap-2 !text-paper/70">
-        <span class="h-2 w-2 animate-pulse bg-signal" /> {draft().mode === 'edit' ? 'Editing' : 'In progress'}
-      </p>
-      <p class="display mt-2 truncate text-4xl">{draft().name || 'Workout'}</p>
-      <p class="mt-1 text-paper/70">
-        {(now(), formatClock(elapsedSeconds()))} · {completedSetCount()} sets logged
-      </p>
-      <button class="btn btn-lg btn-signal btn-block mt-4" onClick={() => navigate('/session')}>
-        Resume <ArrowRight size={20} />
-      </button>
-    </section>
+    <>
+      <SectionTitle>In Progress</SectionTitle>
+      <div class="card p-4">
+        <p class="t-foot flex items-center gap-1.5 font-semibold text-accent">
+          <span class="h-2 w-2 animate-pulse rounded-full bg-accent" />
+          {draft().mode === 'edit' ? 'Editing' : 'Live'}
+        </p>
+        <p class="t-title2 mt-0.5 truncate">{draft().name || 'Workout'}</p>
+        <p class="t-sub text-label-2">
+          <span class="num">{(now(), formatClock(elapsedSeconds()))}</span> · {plural(completedSetCount(), 'set')}{' '}
+          logged
+        </p>
+        <button type="button" class="btn btn-lg btn-primary btn-block mt-3" onClick={() => props.onResume()}>
+          Resume
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -99,72 +108,83 @@ function UpNext(props) {
     <Show
       when={props.plan?.days.length}
       fallback={
-        <section class="mt-8">
-          <p class="eyebrow">Ready when you are</p>
-          <button class="btn btn-lg btn-signal btn-block mt-2" onClick={() => props.onStart(null)}>
-            <Play size={18} fill="currentColor" /> Start workout
-          </button>
-          <Show when={!props.plan}>
-            <p class="mt-3 text-sm text-muted">
-              <A href="/plans" class="font-semibold text-ink underline underline-offset-2">
-                Follow a plan
-              </A>{' '}
-              and your next session will be waiting here.
-            </p>
-          </Show>
-        </section>
+        <>
+          <SectionTitle>Ready When You Are</SectionTitle>
+          <div class="card p-4">
+            <button type="button" class="btn btn-lg btn-primary btn-block" onClick={() => props.onStart(null)}>
+              <Play size={18} fill="currentColor" /> Start Workout
+            </button>
+            <Show when={!props.plan}>
+              <p class="t-foot mt-3 text-center text-label-2">
+                <A href="/plans" class="text-accent">
+                  Follow a plan
+                </A>{' '}
+                and your next session will be waiting here.
+              </p>
+            </Show>
+          </div>
+        </>
       }
     >
-      <section class="mt-8">
-        <div class="flex items-baseline justify-between gap-3">
-          <p class="eyebrow">{props.day.id === props.nextId ? 'Up next' : 'Selected'}</p>
-          <A href={`/plans/${props.plan.id}`} class="eyebrow truncate !text-ink">
-            {props.plan.name} →
+      <SectionTitle
+        action={
+          <A href={`/plans/${props.plan.id}`} class="flex max-w-[50%] items-center text-[17px] text-accent">
+            <span class="truncate">{props.plan.name}</span>
+            <ChevronRight size={18} class="-mr-1 shrink-0" />
           </A>
+        }
+      >
+        {props.day.id === props.nextId ? 'Up Next' : 'Selected'}
+      </SectionTitle>
+
+      <div class="group">
+        <div class="px-4 pt-3.5">
+          <p class="t-title1 truncate">{props.day.name}</p>
+          <div
+            class="no-scrollbar -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 pb-3"
+            role="tablist"
+            aria-label="Plan days"
+          >
+            <For each={props.plan.days}>
+              {(d) => (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={d.id === props.day.id}
+                  class="h-8 shrink-0 rounded-full px-3.5 text-[14px] font-medium transition-colors"
+                  classList={{
+                    'bg-label text-bg': d.id === props.day.id,
+                    'bg-fill text-label': d.id !== props.day.id,
+                  }}
+                  onClick={() => props.onPick(d.id)}
+                >
+                  {d.name}
+                  <Show when={d.id === props.nextId && d.id !== props.day.id}>
+                    <span class="ml-1 text-accent">•</span>
+                  </Show>
+                </button>
+              )}
+            </For>
+          </div>
         </div>
-        <h2 class="display mt-1 text-[3.25rem]">{props.day.name}</h2>
-
-        <div class="no-scrollbar -mx-5 mt-3 flex gap-1.5 overflow-x-auto px-5" role="tablist" aria-label="Plan days">
-          <For each={props.plan.days}>
-            {(d) => (
-              <button
-                role="tab"
-                aria-selected={d.id === props.day.id}
-                class="h-8 shrink-0 border-2 px-3 font-display text-sm font-bold tracking-wide uppercase"
-                classList={{
-                  'border-ink bg-ink text-paper': d.id === props.day.id,
-                  'rule text-muted': d.id !== props.day.id,
-                }}
-                onClick={() => props.onPick(d.id)}
-              >
-                {d.name}
-                <Show when={d.id === props.nextId && d.id !== props.day.id}>
-                  <span class="ml-1 text-signal">•</span>
-                </Show>
-              </button>
-            )}
-          </For>
+        <For each={props.day.exercises} fallback={<p class="row text-label-2">No exercises in this day.</p>}>
+          {(ex, i) => (
+            <div class="row" style={{ '--sep-inset': '3.25rem' }}>
+              <ExerciseNumber exercises={props.day.exercises} index={i()} />
+              <span class="min-w-0 flex-1 truncate">{ex.exercise_name}</span>
+              <span class="num row-value t-sub">{describeTarget(ex)}</span>
+            </div>
+          )}
+        </For>
+        <div class="p-4 pt-3">
+          <button type="button" class="btn btn-lg btn-primary btn-block" onClick={() => props.onStart(props.day)}>
+            <Play size={18} fill="currentColor" /> Start {props.day.name}
+          </button>
+          <button type="button" class="btn btn-plain btn-block mt-1" onClick={() => props.onStart(null)}>
+            Or start an empty workout
+          </button>
         </div>
-
-        <ol class="rule mt-4 border-t">
-          <For each={props.day.exercises} fallback={<li class="py-3 text-muted">No exercises in this day.</li>}>
-            {(ex, i) => (
-              <li class="rule flex items-baseline gap-3 border-b py-2.5">
-                <ExerciseNumber exercises={props.day.exercises} index={i()} />
-                <span class="flex-1 truncate font-medium">{ex.exercise_name}</span>
-                <span class="display text-lg">{describeTarget(ex)}</span>
-              </li>
-            )}
-          </For>
-        </ol>
-
-        <button class="btn btn-lg btn-signal btn-block mt-4" onClick={() => props.onStart(props.day)}>
-          <Play size={18} fill="currentColor" /> Start {props.day.name}
-        </button>
-        <button class="btn btn-quiet btn-block mt-1 text-muted" onClick={() => props.onStart(null)}>
-          Or start an empty workout
-        </button>
-      </section>
+      </div>
     </Show>
   );
 }

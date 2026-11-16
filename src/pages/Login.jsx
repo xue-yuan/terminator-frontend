@@ -82,19 +82,14 @@ export default function Login() {
         'padding-bottom': 'calc(env(safe-area-inset-bottom) + 1.5rem)',
       }}
     >
-      <Logo class="h-12 w-12" />
-
-      <div class="flex flex-1 flex-col justify-center py-10">
-        <h1 class="display text-[clamp(4.5rem,24vw,8.5rem)] leading-[0.82]">
-          Termi
-          <br />
-          nator<span class="text-signal">.</span>
-        </h1>
-        <p class="mt-5 max-w-xs text-lg text-muted">Log every set. Even with no signal at the gym.</p>
+      <div class="flex flex-1 flex-col items-center justify-center py-10 text-center">
+        <Logo class="h-24 w-24 drop-shadow-[0_10px_30px_var(--accent-soft)]" />
+        <h1 class="t-large mt-6">Terminator</h1>
+        <p class="t-sub mt-1.5 max-w-xs text-label-2">Log every set. Even with no signal at the gym.</p>
       </div>
 
       <Show when={sessionExpired()}>
-        <p role="alert" class="mb-4 border-l-4 border-warn bg-sunk px-3 py-2 text-sm">
+        <p role="alert" class="t-sub mb-4 rounded-xl bg-card px-4 py-3">
           Your session expired. Sign in again to continue.
           <Show when={pendingEntries().length}>
             {' '}
@@ -105,10 +100,10 @@ export default function Login() {
       </Show>
 
       <Show when={error()}>
-        <div role="alert" class="mb-4 flex items-center gap-3 border-l-4 border-bad bg-sunk px-3 py-2 text-sm">
-          <span class="flex-1">{error()}</span>
+        <div role="alert" class="t-sub mb-4 flex items-center gap-3 rounded-xl bg-card px-4 py-3">
+          <span class="flex-1 text-bad">{error()}</span>
           <Show when={!config()}>
-            <button class="btn btn-sm" onClick={loadConfig}>
+            <button type="button" class="btn btn-sm btn-gray" onClick={loadConfig}>
               Retry
             </button>
           </Show>
@@ -117,7 +112,7 @@ export default function Login() {
 
       {/* Signing in can take a few seconds (server, then a fresh start): say so. */}
       <Show when={busy()}>
-        <p class="flex h-11 items-center justify-center gap-3 font-semibold" role="status">
+        <p class="flex h-12 items-center justify-center gap-3 font-semibold text-label-2" role="status">
           <Spinner /> Signing in…
         </p>
       </Show>
@@ -129,18 +124,21 @@ export default function Login() {
         </Show>
         <Show when={config()?.dev_login_enabled}>
           <button
-            class="btn btn-lg btn-signal btn-block"
+            type="button"
+            class="btn btn-lg btn-primary btn-block"
             disabled={busy()}
             onClick={() => complete(() => api('/auth/login/dev', { method: 'POST', auth: false }))}
           >
-            Dev login
+            Dev Login
           </button>
         </Show>
         <Show when={config() && !config().google_client_id && !config().dev_login_enabled}>
-          <p class="text-sm text-muted">No sign-in method is configured. Set GOOGLE_CLIENT_ID on the server.</p>
+          <p class="t-foot text-center text-label-2">
+            No sign-in method is configured. Set GOOGLE_CLIENT_ID on the server.
+          </p>
         </Show>
         <Show when={!config() && !error()}>
-          <Spinner class="mx-auto" />
+          <Spinner class="mx-auto text-label-2" />
         </Show>
       </div>
     </div>

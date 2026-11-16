@@ -1,10 +1,11 @@
 import { createResource, createSignal, For, Show } from 'solid-js';
 import { useNavigate, useParams } from '@solidjs/router';
-import { Check, Pencil, Play, Trash2 } from 'lucide-solid';
+import { Check, Play, SearchX } from 'lucide-solid';
 import { api } from '../lib/api';
 import { currentUser } from '../lib/auth';
 import { activatePlan, deactivatePlan, deletePlan, plans, summary } from '../lib/data';
-import { describeTarget } from '../lib/format';
+import { describeTarget, plural } from '../lib/format';
+import { useBack } from '../lib/nav';
 import { draft } from '../lib/session';
 import { toast } from '../lib/toast';
 import { useStart } from '../components/StartSheet';
@@ -14,6 +15,7 @@ import ExerciseNumber from '../components/ExerciseNumber';
 export default function PlanDetail() {
   const params = useParams();
   const navigate = useNavigate();
+  const back = useBack();
   const { startDay } = useStart();
   const [busy, setBusy] = createSignal(null); // which action is waiting on the server
   const [confirmDelete, setConfirmDelete] = createSignal(false);
@@ -46,7 +48,7 @@ export default function PlanDetail() {
   }
 
   const removePlan = async () => {
-    if (await run('delete', () => deletePlan(id()), 'Plan deleted')) navigate('/plans', { replace: true });
+    if (await run('delete', () => deletePlan(id()), 'Plan deleted')) back('/plans');
   };
 
   const start = (day) => {
@@ -58,16 +60,14 @@ export default function PlanDetail() {
     <>
       <PageHeader
         back="/plans"
-        eyebrow={plan() ? `${plan().days.length} days` : 'Plan'}
+        backLabel="Plans"
+        eyebrow={plan() ? plural(plan().days.length, 'day') : ''}
         title={plan()?.name ?? 'Plan'}
         subtitle={plan()?.description}
         actions={
           <Show when={plan() && isOwner()}>
-            <button class="btn btn-icon" aria-label="Edit plan" onClick={() => navigate(`/plans/${id()}/edit`)}>
-              <Pencil size={20} />
-            </button>
-            <button class="btn btn-icon -mr-3 text-bad" aria-label="Delete plan" onClick={() => setConfirmDelete(true)}>
-              <Trash2 size={20} />
+            <button type="button" class="btn btn-plain h-11 px-2" onClick={() => navigate(`/plans/${id()}/edit`)}>
+              Edit
             </button>
           </Show>
         }
@@ -75,72 +75,91 @@ export default function PlanDetail() {
       <Show
         when={plan()}
         fallback={
-          <Show when={!remote.loading} fallback={<Spinner class="mx-auto block" />}>
-            <EmptyState title="Not found" body="It may have been deleted, or you're offline." />
+          <Show when={!remote.loading} fallback={<Spinner class="mx-auto mt-10 block text-label-2" />}>
+            <div class="card mt-3">
+              <EmptyState icon={SearchX} title="Not found" body="It may have been deleted, or you're offline." />
+            </div>
           </Show>
         }
       >
-        <Show
-          when={isActive()}
-          fallback={
-            <button
-              class="btn btn-lg btn-signal btn-block"
-              aria-busy={busy() === 'follow'}
-              disabled={!!busy()}
-              onClick={() => run('follow', () => activatePlan(id()), 'Now following this plan')}
-            >
-              Follow this plan
-            </button>
-          }
-        >
-          <div class="flex items-center gap-3 border-2 border-ink bg-ink px-4 py-3 text-paper">
-            <Check size={20} class="text-signal" strokeWidth={3} />
-            <span class="display flex-1 text-xl">Following</span>
-            <button
-              class="btn btn-sm border-paper/40 text-paper [--busy-fg:var(--paper)]"
-              aria-busy={busy() === 'stop'}
-              disabled={!!busy()}
-              onClick={() => run('stop', deactivatePlan, 'Stopped following')}
-            >
-              Stop
-            </button>
-          </div>
-        </Show>
+        <div class="group mt-3">
+          <Show
+            when={isActive()}
+            fallback={
+              <div class="p-4">
+                <button
+                  type="button"
+                  class="btn btn-lg btn-primary btn-block"
+                  aria-busy={busy() === 'follow'}
+                  disabled={!!busy()}
+                  onClick={() => run('follow', () => activatePlan(id()), 'Now following this plan')}
+                >
+                  Follow This Plan
+                </button>
+                <p class="t-foot mt-2 text-center text-label-2">Its next day will be waiting on Today.</p>
+              </div>
+            }
+          >
+            <div class="row">
+              <span class="row-icon bg-ok">
+                <Check size={18} strokeWidth={3} />
+              </span>
+              <span class="flex-1 font-medium">Following</span>
+              <button
+                type="button"
+                class="btn btn-sm btn-gray"
+                aria-busy={busy() === 'stop'}
+                disabled={!!busy()}
+                onClick={() => run('stop', deactivatePlan, 'Stopped following')}
+              >
+                Stop
+              </button>
+            </div>
+          </Show>
+        </div>
 
         <For each={plan().days}>
           {(day) => (
-            <section class="mt-7">
-              <div class="flex items-center gap-2 border-b-2 border-ink pb-2">
-                <h2 class="display flex-1 truncate text-[1.75rem]">{day.name}</h2>
+            <section>
+              <div class="group-header flex items-end gap-2">
+                <span class="min-w-0 flex-1 truncate">{day.name}</span>
                 <Show when={day.id === nextId()}>
-                  <span class="tag tag-solid">Next</span>
+                  <span class="pill pill-accent">Up next</span>
                 </Show>
-                <button class="btn btn-sm" onClick={() => start(day)} aria-label={`Start ${day.name}`}>
-                  <Play size={14} fill="currentColor" /> Start
-                </button>
               </div>
-              <ol>
-                <For each={day.exercises} fallback={<li class="py-3 text-muted">No exercises</li>}>
+              <div class="group">
+                <For each={day.exercises} fallback={<p class="row text-label-2">No exercises</p>}>
                   {(ex, i) => (
-                    <li class="rule flex items-baseline gap-3 border-b py-2.5">
+                    <div class="row" style={{ '--sep-inset': '3.25rem' }}>
                       <ExerciseNumber exercises={day.exercises} index={i()} />
-                      <span class="flex-1 truncate font-medium">{ex.exercise_name}</span>
-                      <span class="display text-lg">{describeTarget(ex)}</span>
-                    </li>
+                      <span class="min-w-0 flex-1 truncate">{ex.exercise_name}</span>
+                      <span class="num row-value t-sub">{describeTarget(ex)}</span>
+                    </div>
                   )}
                 </For>
-              </ol>
+                <button type="button" class="row row-tap text-accent" onClick={() => start(day)}>
+                  <Play size={16} fill="currentColor" class="w-6" /> Start {day.name}
+                </button>
+              </div>
             </section>
           )}
         </For>
+
+        <Show when={isOwner()}>
+          <div class="group mt-8">
+            <button type="button" class="row row-tap justify-center text-bad" onClick={() => setConfirmDelete(true)}>
+              Delete Plan
+            </button>
+          </div>
+        </Show>
       </Show>
 
       <ConfirmSheet
         open={confirmDelete()}
         onClose={() => setConfirmDelete(false)}
         onConfirm={removePlan}
-        title="Delete plan?"
-        confirmLabel="Delete"
+        title="Delete Plan?"
+        confirmLabel="Delete Plan"
         danger
       >
         Workouts you logged from it are kept.

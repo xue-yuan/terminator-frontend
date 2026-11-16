@@ -1,72 +1,100 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   "Scoreboard" design system
-   Paper & ink, one signal colour, condensed display type, hairline rules.
-   Light by default, dark follows the system unless overridden in Profile.
+   iOS-style design system
+   Grouped background, inset rounded cards with hairline separators, the system
+   font, one orange tint. Light by default; dark follows the system unless set
+   in Profile.
 --------------------------------------------------------------------------- */
 
 :root {
-  --paper: #f2f0ea;
-  --raised: #fbfaf7;
-  --sunk: #e7e4dc;
-  --ink: #141414;
-  --muted: #6c6860;
-  --signal: #ff4f00;
-  --on-signal: #141414;
-  /* chart line on the raised card: validated >= 3:1 and inside the lightness band per mode */
-  --chart-line: #ff4f00;
-  --ok: #1d8a4c;
-  --warn: #a65f00;
-  --bad: #cc2b1d;
+  --bg: #f2f2f7; /* systemGroupedBackground */
+  --card: #ffffff; /* secondarySystemGroupedBackground */
+  --elevated: #ffffff; /* sheets, the selected segment */
+  --fill: rgb(118 118 128 / 0.12);
+  --fill-2: rgb(118 118 128 / 0.2);
+  --label: #000000;
+  --label-2: #6e6e73;
+  --label-3: #aeaeb2;
+  --separator: #c6c6c8;
+  --accent: #ff5a00;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(255 90 0 / 0.13);
+  --chart-line: #ff5a00;
+  --ok: #248a3d;
+  --switch-on: #34c759;
+  --warn: #c76a00;
+  --bad: #ff3b30;
+  --bar: rgb(249 249 249 / 0.82); /* tab bar and mini player, blurred */
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper: #0f0f0f;
-    --raised: #1a1a19;
-    --sunk: #222220;
-    --ink: #f2f0ea;
-    --muted: #8e8a82;
-    --signal: #ff5a14;
-    --on-signal: #0f0f0f;
-    --chart-line: #f75510;
-    --ok: #3ccf7e;
-    --warn: #f0a33a;
-    --bad: #ff6b5c;
+    --bg: #000000;
+    --card: #1c1c1e;
+    --elevated: #2c2c2e;
+    --fill: rgb(118 118 128 / 0.24);
+    --fill-2: rgb(118 118 128 / 0.36);
+    --label: #ffffff;
+    --label-2: #98989f;
+    --label-3: #636366;
+    --separator: #38383a;
+    --accent: #ff6a1a;
+    --on-accent: #ffffff;
+    --accent-soft: rgb(255 106 26 / 0.2);
+    --chart-line: #ff7a33;
+    --ok: #30d158;
+    --switch-on: #30d158;
+    --warn: #ff9f0a;
+    --bad: #ff453a;
+    --bar: rgb(22 22 23 / 0.8);
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --paper: #0f0f0f;
-  --raised: #1a1a19;
-  --sunk: #222220;
-  --ink: #f2f0ea;
-  --muted: #8e8a82;
-  --signal: #ff5a14;
-  --on-signal: #0f0f0f;
-  --chart-line: #f75510;
-  --ok: #3ccf7e;
-  --warn: #f0a33a;
-  --bad: #ff6b5c;
+  --bg: #000000;
+  --card: #1c1c1e;
+  --elevated: #2c2c2e;
+  --fill: rgb(118 118 128 / 0.24);
+  --fill-2: rgb(118 118 128 / 0.36);
+  --label: #ffffff;
+  --label-2: #98989f;
+  --label-3: #636366;
+  --separator: #38383a;
+  --accent: #ff6a1a;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(255 106 26 / 0.2);
+  --chart-line: #ff7a33;
+  --ok: #30d158;
+  --switch-on: #30d158;
+  --warn: #ff9f0a;
+  --bad: #ff453a;
+  --bar: rgb(22 22 23 / 0.8);
   color-scheme: dark;
 }
 
 @theme inline {
-  --color-paper: var(--paper);
-  --color-raised: var(--raised);
-  --color-sunk: var(--sunk);
-  --color-ink: var(--ink);
-  --color-muted: var(--muted);
-  --color-signal: var(--signal);
-  --color-on-signal: var(--on-signal);
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-fill: var(--fill);
+  --color-fill-2: var(--fill-2);
+  --color-label: var(--label);
+  --color-label-2: var(--label-2);
+  --color-label-3: var(--label-3);
+  --color-separator: var(--separator);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-soft: var(--accent-soft);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
-  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
-  --font-display: 'Barlow Condensed', 'Barlow', ui-sans-serif, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* SF Rounded for big numbers, like Apple's Fitness app (falls back to the system font). */
+  --font-rounded: ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @utility pb-safe {
@@ -79,18 +107,21 @@
 @layer base {
   html,
   body {
-    background: var(--paper);
-    color: var(--ink);
+    background: var(--bg);
+    color: var(--label);
   }
   body {
     font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
   :focus-visible {
-    outline: 2px solid var(--signal);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
   button {
@@ -115,102 +146,205 @@
 }
 
 @layer components {
-  /* Type */
-  .display {
-    font-family: var(--font-display);
-    font-weight: 800;
-    text-transform: uppercase;
-    line-height: 0.92;
-    letter-spacing: -0.01em;
+  /* ---- type (Apple's text styles) ---- */
+  .t-large {
+    font-size: 34px;
+    line-height: 41px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
   }
-  .eyebrow {
-    font-family: var(--font-display);
+  .t-title1 {
+    font-size: 28px;
+    line-height: 34px;
+    font-weight: 700;
+  }
+  .t-title2 {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 700;
+  }
+  .t-title3 {
+    font-size: 20px;
+    line-height: 25px;
     font-weight: 600;
-    font-size: 0.75rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
   }
-  .rule {
-    border-color: color-mix(in oklab, var(--ink) 13%, transparent);
+  .t-headline {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 600;
+  }
+  .t-sub {
+    font-size: 15px;
+    line-height: 20px;
+  }
+  .t-foot {
+    font-size: 13px;
+    line-height: 18px;
+  }
+  .t-cap {
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .num {
+    font-family: var(--font-rounded);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
   }
 
-  /* Tappable things ease their colours instead of jumping (and no grey iOS flash). */
+  /* Tappable things ease their colours (and no grey iOS flash). */
   a,
   button {
     -webkit-tap-highlight-color: transparent;
     transition:
-      background-color 120ms ease,
-      color 120ms ease,
-      border-color 120ms ease;
+      background-color 150ms ease,
+      color 150ms ease,
+      opacity 150ms ease;
   }
 
-  /* Buttons */
+  /* ---- inset grouped lists ---- */
+  .group-header {
+    padding: 1.5rem 1rem 0.4rem;
+    font-size: 13px;
+    line-height: 18px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--label-2);
+  }
+  .group-footer {
+    padding: 0.4rem 1rem 0;
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--label-2);
+  }
+  /* A plain rounded card; .group is a card of rows with separators between them. */
+  .card,
+  .group {
+    background: var(--card);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .group > :not(dialog, input[type='file']) {
+    position: relative;
+  }
+  /* Hairline between rows, inset like iOS (rows can move it with --sep-inset). */
+  .group > :not(dialog, input[type='file']) ~ :not(dialog, input[type='file'])::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: var(--sep-inset, 1rem);
+    z-index: 2;
+    border-top: 0.5px solid var(--separator);
+    pointer-events: none;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.6875rem 1rem;
+    text-align: left;
+    background: var(--card);
+  }
+  .row-tap:active,
+  .row-tap[data-pressed] {
+    background: var(--fill-2);
+  }
+  .row-value {
+    margin-left: auto;
+    color: var(--label-2);
+    text-align: right;
+  }
+  /* Icon tile at the start of a settings row. */
+  .row-icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 7px;
+    color: #fff;
+  }
+
+  /* ---- buttons ---- */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    height: 3rem;
-    padding: 0 1.25rem;
-    border: 2px solid var(--ink);
-    background: transparent;
-    color: var(--ink);
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 1.0625rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    gap: 0.375rem;
+    height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: 12px;
+    background: var(--fill);
+    color: var(--accent);
+    font-size: 17px;
+    font-weight: 600;
     white-space: nowrap;
     user-select: none;
     transition:
-      transform 80ms ease,
-      background-color 120ms ease,
-      opacity 120ms ease;
+      transform 120ms var(--ease-ios),
+      background-color 150ms ease,
+      opacity 150ms ease;
   }
   .btn:active:not(:disabled) {
     transform: scale(0.97);
+    opacity: 0.8;
   }
   .btn:disabled {
-    opacity: 0.35;
+    opacity: 0.4;
   }
-  .btn-signal {
-    background: var(--signal);
-    border-color: var(--signal);
-    color: var(--on-signal);
+  .btn-primary {
+    background: var(--accent);
+    color: var(--on-accent);
   }
-  .btn-ink {
-    background: var(--ink);
-    color: var(--paper);
+  .btn-tinted {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
-  .btn-quiet {
-    border-color: transparent;
+  .btn-gray {
+    background: var(--fill);
+    color: var(--label);
   }
-  .btn-quiet:active:not(:disabled) {
-    background: var(--sunk);
+  .btn-plain {
+    background: transparent;
+    color: var(--accent);
   }
-  .btn-danger {
-    border-color: transparent;
+  .btn-destructive {
+    background: transparent;
     color: var(--bad);
   }
   .btn-lg {
-    height: 3.75rem;
-    font-size: 1.25rem;
+    height: 3.25rem;
+    border-radius: 14px;
+    font-size: 17px;
   }
   .btn-sm {
-    height: 2.25rem;
-    padding: 0 0.75rem;
-    font-size: 0.9375rem;
-    border-width: 1.5px;
+    height: 2rem;
+    padding: 0 0.875rem;
+    border-radius: 9999px;
+    font-size: 15px;
   }
   .btn-icon {
     width: 2.75rem;
     height: 2.75rem;
     padding: 0;
-    border-color: transparent;
+    border-radius: 9999px;
+    background: transparent;
   }
   .btn-icon:active:not(:disabled) {
-    background: var(--sunk);
+    background: var(--fill);
+    transform: none;
+  }
+  /* A small round grey button (close, more), like iOS 17 sheets. */
+  .btn-round {
+    width: 1.875rem;
+    height: 1.875rem;
+    padding: 0;
+    border-radius: 9999px;
+    background: var(--fill);
+    color: var(--label-2);
   }
   .btn-block {
     display: flex;
@@ -236,7 +370,7 @@
     margin: auto;
     width: 1.25rem;
     height: 1.25rem;
-    border: 2px solid var(--busy-fg, var(--ink));
+    border: 2px solid var(--busy-fg, var(--accent));
     border-right-color: transparent;
     border-radius: 9999px;
     animation: spin 700ms linear infinite;
@@ -245,101 +379,194 @@
     width: 1rem;
     height: 1rem;
   }
-  .btn-signal {
-    --busy-fg: var(--on-signal);
+  .btn-primary {
+    --busy-fg: var(--on-accent);
   }
-  .btn-ink {
-    --busy-fg: var(--paper);
+  .btn-gray {
+    --busy-fg: var(--label);
   }
-  .btn-danger {
+  .btn-destructive {
     --busy-fg: var(--bad);
   }
 
-  /* Fields */
+  /* ---- fields ---- */
   .field {
     width: 100%;
-    height: 3rem;
+    height: 2.75rem;
     padding: 0 0.875rem;
-    background: var(--raised);
-    border: 1.5px solid color-mix(in oklab, var(--ink) 16%, transparent);
-    color: var(--ink);
+    border-radius: 10px;
+    background: var(--fill);
+    color: var(--label);
     outline: none;
-    border-radius: 0;
+    caret-color: var(--accent);
   }
   .field::placeholder {
-    color: var(--muted);
-    opacity: 0.8;
-  }
-  .field:focus {
-    border-color: var(--ink);
+    color: var(--label-3);
   }
   textarea.field {
     height: auto;
-    padding: 0.75rem 0.875rem;
+    padding: 0.625rem 0.875rem;
     resize: vertical;
   }
-  select.field {
+  /* A field that sits inside a list row: no box of its own. */
+  .field-inline {
+    min-width: 0;
+    flex: 1;
+    background: transparent;
+    color: var(--label);
+    outline: none;
+    caret-color: var(--accent);
+  }
+  .field-inline::placeholder {
+    color: var(--label-3);
+  }
+  select.field,
+  select.field-inline {
     appearance: none;
-    background-image:
-      linear-gradient(45deg, transparent 50%, currentColor 50%),
-      linear-gradient(135deg, currentColor 50%, transparent 50%);
-    background-position:
-      calc(100% - 18px) 50%,
-      calc(100% - 13px) 50%;
-    background-size: 5px 5px;
-    background-repeat: no-repeat;
-    padding-right: 2rem;
   }
 
-  /* Tags */
-  .tag {
+  /* ---- segmented control ---- */
+  .seg {
+    position: relative;
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--fill);
+  }
+  .seg > button {
+    position: relative;
+    z-index: 1;
+    height: 1.75rem;
+    padding: 0 0.5rem;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--label);
+    white-space: nowrap;
+  }
+  .seg > button[aria-checked='true'],
+  .seg > a[aria-current='page'] {
+    font-weight: 600;
+  }
+  .seg > a {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.75rem;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  /* The white thumb slides under the selected segment (components/ui.jsx). */
+  .seg-thumb {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    border-radius: 7px;
+    background: var(--elevated);
+    box-shadow:
+      0 3px 8px rgb(0 0 0 / 0.12),
+      0 3px 1px rgb(0 0 0 / 0.04);
+    transition: transform 280ms var(--ease-ios);
+  }
+
+  /* ---- switch ---- */
+  .switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 51px;
+    height: 31px;
+    border-radius: 9999px;
+    background: var(--fill-2);
+    transition: background-color 200ms ease;
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 27px;
+    height: 27px;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow:
+      0 3px 8px rgb(0 0 0 / 0.15),
+      0 3px 1px rgb(0 0 0 / 0.06);
+    transition: transform 250ms var(--ease-ios);
+  }
+  .switch[aria-checked='true'] {
+    background: var(--switch-on);
+  }
+  .switch[aria-checked='true']::after {
+    transform: translateX(20px);
+  }
+
+  /* ---- small labels ---- */
+  .pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.125rem 0.4rem;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 0.75rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    border: 1.5px solid currentColor;
-    line-height: 1.2;
+    gap: 0.2rem;
+    height: 1.25rem;
+    padding: 0 0.45rem;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--fill);
+    color: var(--label-2);
   }
-  .tag-solid {
-    background: var(--signal);
-    border-color: var(--signal);
-    color: var(--on-signal);
+  .pill-accent {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
-  /* Bottom sheet (native <dialog>) */
+  /* ---- sheets (native <dialog>) ---- */
   dialog.sheet {
     margin: auto 0 0;
     width: 100%;
     max-width: 100%;
-    max-height: 88dvh;
+    max-height: 92dvh;
     padding: 0;
     border: 0;
-    border-top: 2px solid var(--ink);
-    background: var(--paper);
-    color: var(--ink);
+    border-radius: 14px 14px 0 0;
+    background: var(--bg);
+    color: var(--label);
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
   @media (min-width: 640px) {
     dialog.sheet {
       margin: auto;
       max-width: 28rem;
-      border: 2px solid var(--ink);
+      border-radius: 14px;
     }
   }
-  /* A bottom sheet slides up from the edge (centred on wide screens: rises a little). */
   dialog.sheet[open] {
-    animation: sheet-up 280ms cubic-bezier(0.2, 0.9, 0.25, 1);
+    animation: sheet-up 420ms var(--ease-ios);
   }
   dialog.sheet::backdrop {
-    background: rgb(0 0 0 / 0.45);
+    background: rgb(0 0 0 / 0.4);
+    animation: fade-in 250ms ease-out;
+  }
+  /* Closing (components/ui.jsx Sheet): slide away before the dialog closes. */
+  dialog.sheet[data-closing] {
+    pointer-events: none;
+    animation: sheet-down 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  dialog.sheet[data-closing]::backdrop {
+    animation: fade-out 260ms ease-in forwards;
   }
   @keyframes sheet-up {
     from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes sheet-down {
+    to {
       transform: translateY(100%);
     }
   }
@@ -350,48 +577,68 @@
         transform: translateY(24px);
       }
     }
+    @keyframes sheet-down {
+      to {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+    }
+  }
+  .grabber {
+    width: 36px;
+    height: 5px;
+    margin: 6px auto 0;
+    border-radius: 9999px;
+    background: var(--label-3);
+    opacity: 0.6;
   }
 
-  /* Toasts (components/ui.jsx Toaster) */
+  /* ---- bars (tab bar, mini player, sticky headers) ---- */
+  .bar {
+    background: var(--bar);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* ---- toasts: a banner that drops in from the top (components/ui.jsx Toaster) ---- */
   .toast {
-    animation: toast-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: toast-in 380ms var(--ease-ios);
   }
   .toast-leaving {
-    animation: toast-out 160ms ease-in forwards;
+    animation: toast-out 220ms ease-in forwards;
   }
   @keyframes toast-in {
     from {
-      transform: translateY(12px);
+      transform: translateY(-120%) scale(0.96);
       opacity: 0;
     }
   }
   @keyframes toast-out {
     to {
-      transform: translateY(8px);
+      transform: translateY(-60%) scale(0.96);
       opacity: 0;
     }
   }
 
-  /* Motion: short and quiet (all of it is cut to 1 ms with reduced motion, below). */
+  /* ---- motion ---- */
   .anim-pop {
-    animation: pop-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: pop-in 240ms var(--ease-ios);
   }
-  /* A list dropping down from the field above it. */
   .anim-drop {
     transform-origin: top;
-    animation: drop-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    animation: drop-in 220ms var(--ease-ios);
+  }
+  .anim-slide-up {
+    animation: slide-up 320ms var(--ease-ios);
+  }
+  .anim-check {
+    animation: check-pop 300ms cubic-bezier(0.3, 1.5, 0.5, 1);
   }
   @keyframes drop-in {
     from {
       opacity: 0;
-      transform: translateY(-8px) scaleY(0.92);
+      transform: translateY(-8px) scaleY(0.94);
     }
-  }
-  .anim-slide-up {
-    animation: slide-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  .anim-check {
-    animation: check-pop 260ms cubic-bezier(0.3, 1.5, 0.5, 1);
   }
   @keyframes pop-in {
     from {
@@ -408,30 +655,6 @@
     from {
       opacity: 0;
       transform: scale(0.4);
-    }
-  }
-  dialog.sheet::backdrop {
-    animation: fade-in 180ms ease-out;
-  }
-  /* Closing (components/ui.jsx Sheet): slide away before the dialog closes. */
-  dialog.sheet[data-closing] {
-    pointer-events: none;
-    animation: sheet-down 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
-  }
-  dialog.sheet[data-closing]::backdrop {
-    animation: fade-out 200ms ease-in forwards;
-  }
-  @keyframes sheet-down {
-    to {
-      transform: translateY(100%);
-    }
-  }
-  @media (min-width: 640px) {
-    @keyframes sheet-down {
-      to {
-        opacity: 0;
-        transform: translateY(24px);
-      }
     }
   }
   @keyframes fade-in {
@@ -460,14 +683,14 @@
     }
   }
 
-  /* Data on its way (components/Layout.jsx): a thin bar under the status bar.
-     It waits 300 ms before showing, so quick fetches don't flash it. */
+  /* First load with nothing cached yet (components/Layout.jsx): a thin bar under
+     the status bar. It waits 300 ms before showing, so quick fetches don't flash it. */
   .loading-bar {
     position: fixed;
     inset-inline: 0;
     top: env(safe-area-inset-top);
     z-index: 60;
-    height: 3px;
+    height: 2px;
     overflow: hidden;
     pointer-events: none;
     animation: fade-in 200ms 300ms both;
@@ -477,7 +700,7 @@
     position: absolute;
     inset-block: 0;
     width: 40%;
-    background: var(--signal);
+    background: var(--accent);
     animation: loading-bar 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
   @keyframes loading-bar {
@@ -548,5 +771,9 @@
   }
   .btn:active:not(:disabled) {
     transform: none;
+  }
+  .seg-thumb,
+  .switch::after {
+    transition-duration: 1ms;
   }
 }

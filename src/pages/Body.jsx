@@ -1,13 +1,14 @@
 import { createEffect, createMemo, createSignal, For, on, Show, untrack } from 'solid-js';
-import { CloudUpload, Plus, Trash2 } from 'lucide-solid';
+import { Plus, Scale, Trash2 } from 'lucide-solid';
 import { bodyWeightList, deleteBodyWeight, logBodyWeight } from '../lib/data';
 import { addDays } from '../lib/dates';
-import { formatDay, formatTime, formatWeight, toLocalInput } from '../lib/format';
+import { formatDay, formatTime, formatWeight, plural, toLocalInput } from '../lib/format';
 import { unit as defaultUnit } from '../lib/prefs';
-import { toast } from '../lib/toast';
+import { toast, undoable } from '../lib/toast';
 import { convert, UNITS } from '../lib/units';
 import LineChart from '../components/LineChart';
-import { ChipToggle, ConfirmSheet, EmptyState, PageHeader, Sheet, StatRow } from '../components/ui';
+import { SwipeRow } from '../components/SwipeRow';
+import { ChipToggle, EmptyState, PageHeader, Section, Sheet, StatRow } from '../components/ui';
 
 const DAY = 86_400_000;
 const RANGES = [
@@ -19,13 +20,19 @@ const RANGES = [
 /** One decimal at most: converted weights aren't exact anyway. */
 const w1 = (v) => formatWeight(Math.round(v * 10) / 10);
 
+/** Delete a weigh-in, with Undo (it's logged again under the same id). */
+function deleteWithUndo(entry) {
+  const { id, weight, unit, measured_at } = entry;
+  deleteBodyWeight(id);
+  undoable('Weigh-in deleted', () => logBodyWeight({ id, weight, unit, measured_at }));
+}
+
 export default function Body() {
   const latest = () => bodyWeightList()[0] ?? null;
   const [viewUnit, setViewUnit] = createSignal(untrack(() => latest()?.unit) ?? defaultUnit());
   const [range, setRange] = createSignal('3m');
   const [selected, setSelected] = createSignal(null);
   const [logging, setLogging] = createSignal(false);
-  const [removing, setRemoving] = createSignal(null);
 
   const inView = (e) => convert(e.weight, e.unit, viewUnit());
 
@@ -60,26 +67,44 @@ export default function Body() {
 
   return (
     <>
-      <PageHeader back="/profile" eyebrow="Body" title="Body weight" />
-
-      <button class="btn btn-lg btn-signal btn-block" onClick={() => setLogging(true)}>
-        <Plus size={20} /> Log weight
-      </button>
+      <PageHeader
+        back="/profile"
+        backLabel="You"
+        title="Body Weight"
+        actions={
+          <button
+            type="button"
+            class="btn btn-icon text-accent"
+            aria-label="Log weight"
+            onClick={() => setLogging(true)}
+          >
+            <Plus size={26} strokeWidth={2.25} />
+          </button>
+        }
+      />
 
       <Show
         when={bodyWeightList().length}
         fallback={
-          <div class="mt-6">
-            <EmptyState title="No weigh-ins yet" body="Log your weight now and then to see the trend here." />
+          <div class="card mt-3">
+            <EmptyState
+              icon={Scale}
+              title="No weigh-ins yet"
+              body="Log your weight now and then to see the trend here."
+            >
+              <button type="button" class="btn btn-primary" onClick={() => setLogging(true)}>
+                Log Weight
+              </button>
+            </EmptyState>
           </div>
         }
       >
-        <div class="mt-6">
+        <div class="mt-3">
           <StatRow
             stats={[
               { label: 'Latest', value: w1(inView(latest())), unit: viewUnit() },
               {
-                label: '30-day change',
+                label: '30 days',
                 value:
                   change() == null ? null : `${change() > 0 ? '+' : change() < 0 ? '−' : '±'}${w1(Math.abs(change()))}`,
                 unit: change() == null ? null : viewUnit(),
@@ -89,21 +114,17 @@ export default function Body() {
           />
         </div>
 
-        <div class="mt-6 flex items-center justify-between gap-2">
-          <ChipToggle label="Time range" value={range()} options={RANGES.map(([k, l]) => [k, l])} onChange={setRange} />
-          <ChipToggle label="Unit" value={viewUnit()} options={UNITS.map((u) => [u, u])} onChange={setViewUnit} />
-        </div>
-        <section class="mt-3 border-2 border-ink bg-raised px-3 pt-3 pb-1" aria-label="Body weight chart">
+        <section class="card mt-6 px-4 pt-3 pb-1" aria-label="Body weight chart">
           <Show
             when={points().length}
-            fallback={<p class="py-16 text-center text-muted">Nothing logged in this period.</p>}
+            fallback={<p class="t-sub py-16 text-center text-label-2">Nothing logged in this period.</p>}
           >
-            <div class="px-1" aria-live="polite">
-              <p class="display text-[2.5rem] leading-none">
+            <div aria-live="polite">
+              <p class="num text-[34px] leading-10 font-semibold">
                 {w1(point().y)}
-                <span class="ml-1 text-lg text-muted">{viewUnit()}</span>
+                <span class="ml-1 text-[17px] font-medium text-label-2">{viewUnit()}</span>
               </p>
-              <p class="mt-1 text-sm text-muted">
+              <p class="t-foot text-label-2">
                 {formatDay(point().entry.measured_at)} · {formatTime(point().entry.measured_at)}
               </p>
             </div>
@@ -111,58 +132,44 @@ export default function Body() {
               points={points()}
               selected={selIndex()}
               onSelect={setSelected}
-              label={`Body weight, ${points().length} weigh-ins. Use the arrow keys to read each one.`}
+              label={`Body weight, ${plural(points().length, 'weigh-in')}. Use the arrow keys to read each one.`}
             />
           </Show>
+          <div class="flex items-center justify-between gap-2 pt-1 pb-3">
+            <ChipToggle
+              label="Time range"
+              value={range()}
+              options={RANGES.map(([k, l]) => [k, l])}
+              onChange={setRange}
+              class="w-36"
+            />
+            <ChipToggle label="Unit" value={viewUnit()} options={UNITS.map((u) => [u, u])} onChange={setViewUnit} />
+          </div>
         </section>
         <Show when={points().length === 1}>
-          <p class="mt-2 text-sm text-muted">Log it again to see a trend.</p>
+          <p class="group-footer">Log it again to see a trend.</p>
         </Show>
 
-        <h2 class="display mt-8 border-b-2 border-ink pb-1.5 text-xl">History</h2>
-        <ol>
+        <Section title="History" footer="Swipe a weigh-in left to delete it.">
           <For each={bodyWeightList()}>
             {(e) => (
-              <li class="rule flex items-center gap-3 border-b py-2">
-                <span class="w-36 shrink-0 text-sm text-muted">
-                  {formatDay(e.measured_at)} · {formatTime(e.measured_at)}
-                </span>
-                <span class="display flex-1 text-xl">
-                  {formatWeight(e.weight)}
-                  <span class="ml-1 text-sm text-muted">{e.unit}</span>
-                </span>
-                <Show when={e.pending}>
-                  <CloudUpload size={14} class="shrink-0 text-warn" aria-label="Waiting to sync" />
-                </Show>
-                <button
-                  class="btn btn-icon -mr-3 text-muted"
-                  aria-label={`Delete weigh-in of ${formatDay(e.measured_at)}`}
-                  onClick={() => setRemoving(e)}
-                >
-                  <Trash2 size={18} />
-                </button>
-              </li>
+              <SwipeRow actions={[{ label: 'Delete', icon: Trash2, tone: 'bad', onAction: () => deleteWithUndo(e) }]}>
+                <div class="row">
+                  <span class="t-sub flex-1 text-label-2">
+                    {formatDay(e.measured_at)} · {formatTime(e.measured_at)}
+                  </span>
+                  <span class="num text-[17px] font-semibold">
+                    {formatWeight(e.weight)}
+                    <span class="ml-1 text-[14px] font-medium text-label-2">{e.unit}</span>
+                  </span>
+                </div>
+              </SwipeRow>
             )}
           </For>
-        </ol>
+        </Section>
       </Show>
 
       <LogSheet open={logging()} latest={latest()} onClose={() => setLogging(false)} />
-      <ConfirmSheet
-        open={!!removing()}
-        onClose={() => setRemoving(null)}
-        onConfirm={() => {
-          deleteBodyWeight(removing().id);
-          toast('Weigh-in deleted', 'success');
-        }}
-        title="Delete weigh-in?"
-        confirmLabel="Delete"
-        danger
-      >
-        <Show when={removing()}>
-          {formatWeight(removing().weight)} {removing().unit} on {formatDay(removing().measured_at)}.
-        </Show>
-      </ConfirmSheet>
     </>
   );
 }
@@ -197,33 +204,33 @@ function LogSheet(props) {
   }
 
   return (
-    <Sheet open={props.open} onClose={() => props.onClose()} title="Log weight">
-      <form onSubmit={submit} class="grid gap-4">
-        <div class="flex items-end gap-2">
-          <label class="grid flex-1 gap-1">
-            <span class="eyebrow">Weight</span>
+    <Sheet open={props.open} onClose={() => props.onClose()} title="Log Weight">
+      <form onSubmit={submit}>
+        <div class="group">
+          <div class="row">
             <input
-              class="field display h-16 text-center !text-4xl"
+              class="field-inline num h-12 text-[34px] font-semibold"
               inputmode="decimal"
               aria-label="Weight"
+              placeholder="0"
               value={weight()}
               onInput={(e) => setWeight(e.currentTarget.value)}
               onFocus={(e) => e.currentTarget.select()}
             />
+            <ChipToggle label="Unit" value={unit()} options={UNITS.map((u) => [u, u])} onChange={setUnit} />
+          </div>
+          <label class="row">
+            <span class="flex-1">Date</span>
+            <input
+              type="datetime-local"
+              class="field-inline flex-none text-right text-label-2"
+              aria-label="When"
+              value={when()}
+              onChange={(e) => setWhen(e.currentTarget.value)}
+            />
           </label>
-          <ChipToggle label="Unit" value={unit()} options={UNITS.map((u) => [u, u])} onChange={setUnit} />
         </div>
-        <label class="grid gap-1">
-          <span class="eyebrow">When</span>
-          <input
-            type="datetime-local"
-            class="field"
-            aria-label="When"
-            value={when()}
-            onChange={(e) => setWhen(e.currentTarget.value)}
-          />
-        </label>
-        <button type="submit" class="btn btn-lg btn-signal btn-block">
+        <button type="submit" class="btn btn-lg btn-primary btn-block mt-6">
           Save
         </button>
       </form>

@@ -96,7 +96,7 @@ export default function LineChart(props) {
       <svg
         width={geo().w}
         height={HEIGHT}
-        class="block touch-pan-y outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        class="block touch-pan-y outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         role="img"
         aria-label={props.label}
         tabindex="0"
@@ -115,11 +115,11 @@ export default function LineChart(props) {
                 x2={geo().w - PAD.right}
                 y1={geo().py(t)}
                 y2={geo().py(t)}
-                stroke="var(--sunk)"
+                stroke="var(--separator)"
                 stroke-width="1"
                 shape-rendering="crispEdges"
               />
-              <text x={PAD.left - 8} y={geo().py(t)} dy="0.32em" text-anchor="end" fill="var(--muted)" font-size="11">
+              <text x={PAD.left - 8} y={geo().py(t)} dy="0.32em" text-anchor="end" fill="var(--label-2)" font-size="11">
                 {geo().fmtY(t)}
               </text>
             </g>
@@ -137,7 +137,7 @@ export default function LineChart(props) {
                     ? 'end'
                     : 'middle'
               }
-              fill="var(--muted)"
+              fill="var(--label-2)"
               font-size="11"
             >
               {t.label}
@@ -151,7 +151,7 @@ export default function LineChart(props) {
             x2={sel()[0]}
             y1={PAD.top}
             y2={HEIGHT - PAD.bottom}
-            stroke="var(--muted)"
+            stroke="var(--label-3)"
             stroke-width="1"
             shape-rendering="crispEdges"
           />
@@ -174,19 +174,26 @@ export default function LineChart(props) {
               cy={geo().coords.at(-1)[1]}
               r="4"
               fill="var(--chart-line)"
-              stroke="var(--raised)"
+              stroke="var(--card)"
               stroke-width="2"
             />
           }
         >
           <For each={geo().coords}>
             {([cx, cy]) => (
-              <circle cx={cx} cy={cy} r="4" fill="var(--chart-line)" stroke="var(--raised)" stroke-width="2" />
+              <circle cx={cx} cy={cy} r="4" fill="var(--chart-line)" stroke="var(--card)" stroke-width="2" />
             )}
           </For>
         </Show>
         <Show when={sel()}>
-          <circle cx={sel()[0]} cy={sel()[1]} r="6.5" fill="var(--chart-line)" stroke="var(--ink)" stroke-width="2" />
+          <circle
+            cx={sel()[0]}
+            cy={sel()[1]}
+            r="6.5"
+            fill="var(--chart-line)"
+            stroke="var(--card)"
+            stroke-width="2.5"
+          />
         </Show>
       </svg>
     </div>

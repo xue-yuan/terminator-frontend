@@ -18,10 +18,10 @@ export default function SpotifyBar() {
   const track = () => player()?.track;
   const playing = () => !!player()?.playing;
   const control =
-    'flex h-11 w-11 shrink-0 items-center justify-center transition-[background-color,transform] duration-100 active:scale-90 active:bg-sunk';
+    'flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-label transition-transform duration-100 active:scale-90 active:bg-fill';
   return (
     <Show when={spotifyStatus().connected}>
-      <div class="flex items-center gap-2 border-t-2 border-ink bg-raised py-1.5 pr-1 pl-3" aria-label="Spotify">
+      <div class="bar flex items-center gap-1 border-t-[0.5px] border-separator py-1.5 pr-1 pl-3" aria-label="Spotify">
         <div
           class="flex min-w-0 flex-1 items-center gap-2 transition-opacity duration-200"
           classList={{ 'opacity-40': changingTrack() }}
@@ -30,19 +30,19 @@ export default function SpotifyBar() {
             when={track()}
             fallback={
               <>
-                <Music size={18} class="shrink-0 text-muted" />
-                <span class="truncate text-sm text-muted">
+                <Music size={18} class="shrink-0 text-label-2" />
+                <span class="truncate text-sm text-label-2">
                   {problem() ?? (player()?.idle ? 'Nothing playing. Tap play.' : 'Spotify')}
                 </span>
               </>
             }
           >
-            <Show when={track().image} fallback={<Music size={20} class="shrink-0 text-muted" />}>
-              <img src={track().image} alt="" class="h-10 w-10 shrink-0 border-2 border-ink object-cover" />
+            <Show when={track().image} fallback={<Music size={20} class="shrink-0 text-label-2" />}>
+              <img src={track().image} alt="" class="h-10 w-10 shrink-0 rounded-md object-cover shadow-sm" />
             </Show>
             <div class="min-w-0 flex-1">
-              <p class="truncate text-sm leading-tight font-semibold">{track().name}</p>
-              <p class="truncate text-xs text-muted">{problem() ?? track().artists}</p>
+              <p class="t-sub truncate leading-tight font-semibold">{track().name}</p>
+              <p class="t-foot truncate text-label-2">{problem() ?? track().artists}</p>
             </div>
           </Show>
         </div>
@@ -51,12 +51,12 @@ export default function SpotifyBar() {
         </button>
         <button
           type="button"
-          class={`${control} border-2 border-ink`}
+          class={control}
           aria-label={playing() ? 'Pause' : 'Play'}
           onClick={() => (playing() ? pause() : play())}
         >
-          <Show when={playing()} fallback={<Play size={20} fill="currentColor" />}>
-            <Pause size={20} fill="currentColor" />
+          <Show when={playing()} fallback={<Play size={22} fill="currentColor" />}>
+            <Pause size={22} fill="currentColor" />
           </Show>
         </button>
         <button type="button" class={control} aria-label="Next track" onClick={() => nextTrack()}>
