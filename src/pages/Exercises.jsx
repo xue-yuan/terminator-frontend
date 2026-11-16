@@ -1,8 +1,8 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import { ChevronRight, Dumbbell, Search, Trash2 } from 'lucide-solid';
-import { deleteExercise, exerciseList, muscleOf } from '../lib/data';
-import { catalogEntry, matchesQuery, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
+import { catalogEntry, deleteExercise, exerciseList, muscleOf } from '../lib/data';
+import { matchesQuery, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
 import { formatWeight, plural, timeAgo, workingSets } from '../lib/format';
 import { online } from '../lib/network';
 import { toast } from '../lib/toast';

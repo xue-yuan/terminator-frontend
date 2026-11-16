@@ -3,7 +3,7 @@ import { api, OfflineError } from './api';
 import { importBatches } from './backup';
 import { updateUser } from './auth';
 import { refreshSpotifyStatus } from './spotify';
-import { CATALOG, catalogEntry, exerciseKey } from './exercises';
+import { exerciseKey } from './exercises';
 import { clearServerCaches, deleteRecords, initialRecords, load, putRecords, save } from './storage';
 import { dropQueued, entriesOf, onRejected, onSynced, queue, rewriteQueued } from './sync';
 import { uuid } from './uuid';
@@ -99,8 +99,10 @@ export const summary = cachedQuery(documentCache('summary'), () =>
 export const exercises = cachedQuery(documentCache('exercises'), () => api('/exercises/'));
 /** Your weigh-ins, newest first. */
 export const bodyWeights = cachedQuery(documentCache('bodyWeights'), () => api('/body-weights/'));
+/** The built-in exercise library, by name: [{ id, name, zh, aka, muscle_group }]. Admins edit it. */
+export const catalog = cachedQuery(documentCache('catalog'), () => api('/catalog'));
 
-const QUERIES = { workouts, plans, summary, exercises, body_weights: bodyWeights };
+const QUERIES = { workouts, plans, summary, exercises, body_weights: bodyWeights, catalog };
 
 /**
  * Something is loading with nothing cached to show yet (the loading bar at the
@@ -236,6 +238,7 @@ const derived = createRoot(() => {
   });
   const byId = createMemo(() => new Map(exerciseList().map((e) => [e.id, e])));
   const byKey = createMemo(() => new Map(exerciseList().map((e) => [exerciseKey(e.name), e])));
+  const catalogByKey = createMemo(() => new Map((catalog.data() ?? []).map((e) => [exerciseKey(e.name), e])));
 
   const recentExercises = createMemo(() =>
     exerciseList()
@@ -253,10 +256,10 @@ const derived = createRoot(() => {
       out.push(option);
     };
     for (const e of [...recentExercises(), ...exerciseList()]) {
-      const entry = catalogEntry(e.name);
+      const entry = catalogByKey().get(exerciseKey(e.name));
       add({ name: e.name, zh: entry?.zh, aka: entry?.aka, mine: true });
     }
-    for (const e of CATALOG) add({ name: e.name, zh: e.zh, aka: e.aka });
+    for (const e of catalog.data() ?? []) add({ name: e.name, zh: e.zh, aka: e.aka });
     return out;
   });
 
@@ -276,7 +279,7 @@ const derived = createRoot(() => {
     return [...byId.values()].sort((a, b) => Date.parse(b.measured_at) - Date.parse(a.measured_at));
   });
 
-  return { workoutList, exerciseList, byId, byKey, recentExercises, exerciseOptions, bodyWeightList };
+  return { workoutList, exerciseList, byId, byKey, catalogByKey, recentExercises, exerciseOptions, bodyWeightList };
 });
 
 /** Server workouts with unsynced local changes applied, newest first. */
@@ -290,8 +293,10 @@ export const exerciseById = (id) => derived.byId().get(id) ?? null;
 export const exerciseByName = (name) => derived.byKey().get(exerciseKey(name)) ?? null;
 /** Exercises you've logged, most recently done first. */
 export const recentExercises = derived.recentExercises;
-/** Name suggestions: your exercises (recent first), then the built-in catalog. */
+/** Name suggestions: your exercises (recent first), then the built-in library. */
 export const exerciseOptions = derived.exerciseOptions;
+/** The library's entry with this name ({ name, zh, aka, muscle_group }), if any. */
+export const catalogEntry = (name) => derived.catalogByKey().get(exerciseKey(name)) ?? null;
 /**
  * Sets of an exercise in workouts waiting to sync, except one workout (the
  * server's records don't include them yet). -> [{ weight, reps, kind, unit }]
@@ -309,8 +314,8 @@ export function queuedSetsOf(exerciseId, exceptWorkoutId) {
   return out;
 }
 
-/** Muscle group of an exercise: its own, else the built-in catalog's for that name. */
-export const muscleOf = (exercise) => exercise?.muscle_group ?? catalogEntry(exercise?.name)?.muscle ?? null;
+/** Muscle group of an exercise: its own, else the library's for that name. */
+export const muscleOf = (exercise) => exercise?.muscle_group ?? catalogEntry(exercise?.name)?.muscle_group ?? null;
 /** Id of the exercise a logged item is of (items queued by older versions only have its name). */
 export const itemExerciseId = (item) => item.exercise_id ?? exerciseByName(item.exercise_name)?.id ?? null;
 
@@ -324,7 +329,7 @@ export function ensureExercise(name) {
   queue('exercise', id, 'upsert', {
     ...settingsOf(null),
     name: name.trim(),
-    muscle_group: catalogEntry(name)?.muscle ?? null,
+    muscle_group: catalogEntry(name)?.muscle_group ?? null,
   });
   return id;
 }
@@ -589,6 +594,34 @@ export async function importBackup(backup, onProgress = () => {}) {
 export const readAccess = () => api('/admin/access');
 export const allowEmail = (email) => api('/admin/access', { method: 'POST', body: { email } });
 export const removeEmail = (email) => api(`/admin/access/${encodeURIComponent(email)}`, { method: 'DELETE' });
+
+// ---- exercise library (admins only, needs a connection) ---------------------
+
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
+/** After a change of the library: show it now, and don't download it again for it. */
+function libraryChanged(fn) {
+  catalog.update((list) => fn(list ?? []).sort(byName));
+  adoptFingerprints(['catalog']);
+}
+
+/** entry: { name, zh, aka, muscle_group }. Returns the saved entry. */
+export async function addToLibrary(entry) {
+  const saved = await api('/catalog', { method: 'POST', body: entry });
+  libraryChanged((list) => [...list, saved]);
+  return saved;
+}
+
+export async function saveLibraryEntry(id, entry) {
+  const saved = await api(`/catalog/${id}`, { method: 'PUT', body: entry });
+  libraryChanged((list) => list.map((e) => (e.id === id ? saved : e)));
+  return saved;
+}
+
+export async function removeFromLibrary(id) {
+  await api(`/catalog/${id}`, { method: 'DELETE' });
+  libraryChanged((list) => list.filter((e) => e.id !== id));
+}
 
 // ---- plan mutations (need a connection) -------------------------------------
 

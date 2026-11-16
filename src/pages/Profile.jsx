@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import {
+  BookOpen,
   ChevronRight,
   Download,
   Music,
@@ -158,7 +159,7 @@ export default function Profile() {
         </Section>
       </Show>
 
-      <Section class="mt-2" title={isAdmin() ? 'Body & access' : 'Body'}>
+      <Section class="mt-2" title="Body">
         <A href="/body" class="row row-tap" style={{ '--sep-inset': '3.75rem' }}>
           <span class="row-icon bg-[#34c759]">
             <Scale size={18} />
@@ -171,7 +172,18 @@ export default function Profile() {
           </span>
           <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
         </A>
-        <Show when={isAdmin()}>
+      </Section>
+
+      <Show when={isAdmin()}>
+        <Section title="Admin">
+          <A href="/admin/library" class="row row-tap" style={{ '--sep-inset': '3.75rem' }}>
+            <span class="row-icon bg-accent">
+              <BookOpen size={18} />
+            </span>
+            <span class="flex-1">Exercise Library</span>
+            <span class="row-value t-sub">Built-in exercises</span>
+            <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+          </A>
           <A href="/admin" class="row row-tap" style={{ '--sep-inset': '3.75rem' }}>
             <span class="row-icon bg-[#5e5ce6]">
               <ShieldCheck size={18} />
@@ -180,8 +192,8 @@ export default function Profile() {
             <span class="row-value t-sub">Who can use the app</span>
             <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
           </A>
-        </Show>
-      </Section>
+        </Section>
+      </Show>
 
       <Section title="Training">
         <Choice label="Rest timer" hint="After each logged set">
@@ -202,7 +214,7 @@ export default function Profile() {
           <span class="flex-1">
             Sound when rest is over
             <span class="t-foot block text-label-2">
-              A short chime over your music (iPhones can't vibrate from the web)
+              A short chime over your music, while the app is open. Silent mode mutes it.
             </span>
           </span>
           <Switch label="Sound when rest is over" checked={restSound()} onChange={setRestSound} />

@@ -3,6 +3,7 @@ import { A, useNavigate, useParams } from '@solidjs/router';
 import { ChartLine, ChevronRight, SearchX } from 'lucide-solid';
 import { OfflineError } from '../lib/api';
 import {
+  catalogEntry,
   deleteExercise,
   exerciseById,
   exerciseByName,
@@ -14,7 +15,7 @@ import {
   muscleOf,
   saveExercise,
 } from '../lib/data';
-import { catalogEntry, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
+import { MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
 import { formatClock, formatDay, formatLoad, formatNumber, formatWeight, plural } from '../lib/format';
 import { online } from '../lib/network';
 import { restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';

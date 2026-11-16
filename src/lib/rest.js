@@ -37,6 +37,8 @@ createRoot(() => {
   createEffect(
     on(restRemaining, (left, prev) => {
       if (left !== 0 || !(prev > 0)) return;
+      // Back from a locked screen long after rest ended: a chime now would be noise.
+      if (Date.now() - endsAt() > 3000) return;
       navigator.vibrate?.([250, 120, 250]);
       if (restSound()) chime();
     }),

@@ -52,6 +52,32 @@ describe('logging sets', () => {
   });
 });
 
+describe('bodyweight sets', () => {
+  beforeEach(() => s.startWorkout({ planDay: squatDay(3, 'Push-up', [10, 15]) }));
+
+  it('logs weight 0 (BW) and carries it into the next set', () => {
+    type(0, 0, 'weight', '0');
+    type(0, 0, 'reps', '12');
+    expect(s.logSet(0, 0)).toBeNull();
+    expect(set(0, 0)).toMatchObject({ weight: '0', reps: '12', done: true });
+    expect(set(0, 1)).toMatchObject({ weight: '0', reps: '12' });
+  });
+
+  it('goes from BW to added weight with +, and back with −', () => {
+    type(0, 0, 'weight', '0');
+    s.stepField(0, 0, 'weight', 5);
+    expect(set(0, 0).weight).toBe('5'); // e.g. a weighted push-up
+    s.stepField(0, 0, 'weight', -5);
+    s.stepField(0, 0, 'weight', -5);
+    expect(set(0, 0).weight).toBe('0'); // never below BW
+  });
+
+  it('says how to log one when the weight is empty', () => {
+    type(0, 0, 'reps', '12');
+    expect(s.logSet(0, 0)).toMatch(/tap BW/);
+  });
+});
+
 describe('adding a set', () => {
   it('copies the last logged set as values and previews it', () => {
     s.startWorkout({ planDay: squatDay(1) });

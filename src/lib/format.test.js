@@ -11,7 +11,7 @@ import {
   volume,
 } from './format';
 import { convert, roundWeight } from './units';
-import { CATALOG, exerciseKey, matchesQuery, MUSCLE_GROUPS } from './exercises';
+import { exerciseKey, matchesQuery } from './exercises';
 
 describe('supersetLabels', () => {
   it('labels runs of the same group A1, A2, then B1...', () => {
@@ -96,33 +96,29 @@ describe('warm-up sets', () => {
   });
 });
 
-describe('exercise catalog', () => {
-  const find = (q) => CATALOG.filter((e) => matchesQuery(e, q)).map((e) => e.name);
+describe('exercise search', () => {
+  // Library entries look like this (the list itself is on the server; its checks are backend tests).
+  const library = [
+    { name: 'Chest Press Machine', zh: '坐姿推胸機', aka: '機械中胸 機械推胸' },
+    { name: 'Incline Chest Press Machine', zh: '上斜推胸機', aka: '機械上胸' },
+    { name: 'Decline Chest Press Machine', zh: '下斜推胸機', aka: '機械下胸' },
+    { name: 'Chest-Supported Rear Delt Fly (45°)', zh: '上斜俯身飛鳥 45 度', aka: '肩膀飛鳥' },
+    { name: 'Chest-Supported Rear Delt Fly (60°)', zh: '上斜俯身飛鳥 60 度', aka: '肩膀飛鳥' },
+    { name: 'My Own Thing' },
+  ];
+  const find = (q) => library.filter((e) => matchesQuery(e, q)).map((e) => e.name);
 
-  it('finds exercises by the names people call them, not just the formal ones', () => {
+  it('finds exercises by English name (any case), Chinese name or the other names people call them', () => {
+    expect(find('incline chest')).toEqual(['Incline Chest Press Machine']);
+    expect(find('坐姿推胸')).toEqual(['Chest Press Machine']);
     expect(find('機械上胸')).toEqual(['Incline Chest Press Machine']);
-    expect(find('機械中胸')).toEqual(['Chest Press Machine']);
     expect(find('機械下胸')).toEqual(['Decline Chest Press Machine']);
-    expect(find('機械夾胸')).toEqual(['Pec Deck']);
-    expect(find('機械夾下胸')).toEqual(['Decline Fly Machine']);
-    expect(find('機械肩推')).toEqual(['Machine Shoulder Press']);
-    expect(find('三頭上拉')).toEqual(['Cable Overhead Tricep Extension']);
-    expect(find('三向捲腹')).toEqual(['3-Way Crunch']);
-    expect(find('肩膀飛鳥')).toEqual([
-      'Chest-Supported Rear Delt Fly (45°)',
-      'Chest-Supported Rear Delt Fly (60°)',
-      'Chest-Supported Rear Delt Fly (75°)',
-    ]);
+    expect(find('肩膀飛鳥')).toEqual(['Chest-Supported Rear Delt Fly (45°)', 'Chest-Supported Rear Delt Fly (60°)']);
     expect(find('60 度')).toEqual(['Chest-Supported Rear Delt Fly (60°)']);
   });
 
-  it('has unique names, a Chinese name and a known muscle group for every entry', () => {
-    const keys = CATALOG.map((e) => exerciseKey(e.name));
-    expect(new Set(keys).size).toBe(keys.length);
-    const groups = new Set(MUSCLE_GROUPS.map(([key]) => key));
-    for (const e of CATALOG) {
-      expect(e.zh, e.name).toBeTruthy();
-      expect(groups.has(e.muscle), e.name).toBe(true);
-    }
+  it('matches everything when nothing is typed, and entries without a Chinese name', () => {
+    expect(find('  ')).toHaveLength(library.length);
+    expect(find('own')).toEqual(['My Own Thing']);
   });
 });

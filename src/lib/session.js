@@ -490,7 +490,7 @@ function setProblem(set) {
   const reps = parseNumber(set.reps);
   const rpe = parseNumber(set.rpe);
   if (reps == null || Number.isNaN(reps) || reps < 0 || !Number.isInteger(reps)) return 'Enter reps';
-  if (weight == null || Number.isNaN(weight) || weight < 0) return 'Enter weight (0 for bodyweight)';
+  if (weight == null || Number.isNaN(weight) || weight < 0) return 'Enter a weight, or tap BW for bodyweight';
   if (rpe != null && (Number.isNaN(rpe) || rpe < 1 || rpe > 10)) return 'RPE must be 1–10';
   return null;
 }

@@ -17,7 +17,7 @@ import {
   Undo2,
   Unlink2,
 } from 'lucide-solid';
-import { exerciseByName, exerciseOptions, recentExercises } from '../lib/data';
+import { catalog, catalogEntry, exerciseByName, exerciseOptions, recentExercises } from '../lib/data';
 import { exerciseKey, POPULAR } from '../lib/exercises';
 import {
   describeSets,
@@ -395,11 +395,13 @@ function ExerciseStrip() {
 // ---- focused exercise ------------------------------------------------------------
 
 function QuickPicks(props) {
-  // Your recent exercises, topped up with popular ones while history is short.
+  // Your recent exercises, topped up with popular ones while history is short
+  // (those still in the library: an admin may have removed one).
   const picks = createMemo(() => {
     const used = new Set(draft().exercises.map((e) => exerciseKey(e.name)));
     const out = [];
-    for (const name of [...recentExercises().map((e) => e.name), ...POPULAR]) {
+    const popular = POPULAR.filter((name) => !catalog.data() || catalogEntry(name));
+    for (const name of [...recentExercises().map((e) => e.name), ...popular]) {
       const key = exerciseKey(name);
       if (!used.has(key) && out.length < 10) {
         used.add(key);
@@ -755,13 +757,39 @@ function SetRow(props) {
 function Stepper(props) {
   const value = () => props.set[props.field];
   const hint = () => hintValue(draft().exercises[props.i], props.set, props.field);
+  // With `bodyweight`, a weight of 0 reads "BW", typed or suggested; the BW button sets it.
+  const isBW = (v) => !!props.bodyweight && v !== '' && parseNumber(v) === 0;
+  const bodyweight = () => isBW(effectiveValue(draft().exercises[props.i], props.set, props.field));
+  const placeholder = () => {
+    if (isBW(hint())) return 'BW';
+    const n = parseNumber(hint());
+    return Number.isFinite(n) ? formatWeight(n) : '–'; // nothing to log yet
+  };
   const button =
     'flex w-11 shrink-0 items-center justify-center text-accent transition-colors active:bg-fill-2 disabled:opacity-40';
   return (
     <div class="min-w-0">
-      <label class="t-cap pl-1 font-medium text-label-2 uppercase" for={props.id}>
-        {props.label}
-      </label>
+      <div class="flex items-center justify-between gap-2 pl-1">
+        <label class="t-cap truncate font-medium text-label-2 uppercase" for={props.id}>
+          {props.label}
+        </label>
+        <Show when={props.bodyweight}>
+          {/* Small to look at; the ::before makes it a comfortable target. */}
+          <button
+            type="button"
+            title="Bodyweight"
+            aria-pressed={bodyweight()}
+            class="relative -my-1 h-6 shrink-0 rounded-full px-2.5 text-[12px] font-bold transition-colors before:absolute before:-inset-x-1.5 before:-inset-y-3 before:content-['']"
+            classList={{ 'bg-accent text-on-accent': bodyweight(), 'bg-fill text-accent': !bodyweight() }}
+            onClick={() => {
+              buzz();
+              updateDraft('exercises', props.i, 'sets', props.j, props.field, '0');
+            }}
+          >
+            BW
+          </button>
+        </Show>
+      </div>
       <div class="mt-1 flex h-14 overflow-hidden rounded-xl bg-fill">
         <button
           type="button"
@@ -778,9 +806,19 @@ function Stepper(props) {
           id={props.id}
           class="num w-full min-w-0 bg-transparent text-center text-[28px] font-semibold outline-none placeholder:text-label"
           inputmode={props.inputmode}
-          value={value()}
-          placeholder={Number.isFinite(parseNumber(hint())) ? formatWeight(parseNumber(hint())) : '0'}
-          onInput={(e) => updateDraft('exercises', props.i, 'sets', props.j, props.field, e.currentTarget.value)}
+          value={isBW(value()) ? 'BW' : value()}
+          placeholder={placeholder()}
+          // Typing over "BW" (selected on focus) leaves just the number.
+          onInput={(e) =>
+            updateDraft(
+              'exercises',
+              props.i,
+              'sets',
+              props.j,
+              props.field,
+              e.currentTarget.value.replace(/[^\d.,]/g, ''),
+            )
+          }
           onFocus={(e) => e.currentTarget.select()}
         />
         <button
@@ -835,6 +873,7 @@ function SetEditor(props) {
           field="weight"
           step={weightStepFor(props.i)}
           inputmode="decimal"
+          bodyweight
           set={set()}
           i={props.i}
           j={props.j}

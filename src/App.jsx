@@ -8,6 +8,7 @@ import Body from './pages/Body';
 import ExerciseDetail from './pages/ExerciseDetail';
 import Exercises from './pages/Exercises';
 import History from './pages/History';
+import Library from './pages/Library';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import PlanDetail from './pages/PlanDetail';
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="/profile" component={Profile} />
         <Route path="/body" component={Body} />
         <Route path="/admin" component={Admin} />
+        <Route path="/admin/library" component={Library} />
         <Route path="*" component={() => <Navigate href="/" />} />
       </Route>
     </Router>

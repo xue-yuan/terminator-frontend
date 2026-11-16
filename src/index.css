@@ -120,6 +120,19 @@
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
+  /* No double-tap zoom anywhere, so tapping − / + quickly just counts. Set on
+     every element: iOS stops looking at ancestors at the nearest scroller
+     (sheets, menus). Classes like touch-pan-y still override it. */
+  *,
+  ::before,
+  ::after {
+    touch-action: manipulation;
+  }
+  button,
+  [role='button'] {
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;

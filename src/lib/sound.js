@@ -13,11 +13,14 @@ export function primeSound() {
       const AudioContext = window.AudioContext ?? window.webkitAudioContext;
       if (!AudioContext) return;
       // A short sound over whatever music is playing (which may duck for it),
-      // not a takeover that would pause Spotify. Safari 16.4+.
+      // not a takeover that would pause Spotify. Safari 16.4+. On iOS this kind
+      // of sound obeys the silent switch, like system alerts; 'playback' would
+      // ring through it but stop the music, so silent mode stays silent.
       if (navigator.audioSession) navigator.audioSession.type = 'transient';
       ctx = new AudioContext();
     }
-    if (ctx.state === 'suspended') ctx.resume();
+    // 'suspended', or iOS's 'interrupted' after the app was in the background.
+    if (ctx.state !== 'running') ctx.resume();
     // iOS only unlocks output once something has played within the tap: one silent sample.
     const source = ctx.createBufferSource();
     source.buffer = ctx.createBuffer(1, 1, 22050);
