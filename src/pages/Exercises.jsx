@@ -30,7 +30,7 @@ export default function Exercises() {
   const [deleting, setDeleting] = createSignal(null);
   const all = createMemo(() =>
     exerciseList()
-      .map((e) => ({ ...e, zh: catalogEntry(e.name)?.zh, muscle: muscleOf(e) }))
+      .map((e) => ({ ...e, zh: catalogEntry(e.name)?.zh, aka: catalogEntry(e.name)?.aka, muscle: muscleOf(e) }))
       .sort(byRecency),
   );
   const groups = createMemo(() => MUSCLE_GROUPS.filter(([key]) => all().some((e) => e.muscle === key)));

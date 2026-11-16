@@ -11,7 +11,7 @@ import {
   volume,
 } from './format';
 import { convert, roundWeight } from './units';
-import { exerciseKey, matchesQuery } from './exercises';
+import { CATALOG, exerciseKey, matchesQuery, MUSCLE_GROUPS } from './exercises';
 
 describe('supersetLabels', () => {
   it('labels runs of the same group A1, A2, then B1...', () => {
@@ -93,5 +93,36 @@ describe('warm-up sets', () => {
 
   it('are labelled W; working sets are numbered without them', () => {
     expect(sets.map((_, j) => setLabel(sets, j))).toEqual(['W', 'W', '1', '2']);
+  });
+});
+
+describe('exercise catalog', () => {
+  const find = (q) => CATALOG.filter((e) => matchesQuery(e, q)).map((e) => e.name);
+
+  it('finds exercises by the names people call them, not just the formal ones', () => {
+    expect(find('機械上胸')).toEqual(['Incline Chest Press Machine']);
+    expect(find('機械中胸')).toEqual(['Chest Press Machine']);
+    expect(find('機械下胸')).toEqual(['Decline Chest Press Machine']);
+    expect(find('機械夾胸')).toEqual(['Pec Deck']);
+    expect(find('機械夾下胸')).toEqual(['Decline Fly Machine']);
+    expect(find('機械肩推')).toEqual(['Machine Shoulder Press']);
+    expect(find('三頭上拉')).toEqual(['Cable Overhead Tricep Extension']);
+    expect(find('三向捲腹')).toEqual(['3-Way Crunch']);
+    expect(find('肩膀飛鳥')).toEqual([
+      'Chest-Supported Rear Delt Fly (45°)',
+      'Chest-Supported Rear Delt Fly (60°)',
+      'Chest-Supported Rear Delt Fly (75°)',
+    ]);
+    expect(find('60 度')).toEqual(['Chest-Supported Rear Delt Fly (60°)']);
+  });
+
+  it('has unique names, a Chinese name and a known muscle group for every entry', () => {
+    const keys = CATALOG.map((e) => exerciseKey(e.name));
+    expect(new Set(keys).size).toBe(keys.length);
+    const groups = new Set(MUSCLE_GROUPS.map(([key]) => key));
+    for (const e of CATALOG) {
+      expect(e.zh, e.name).toBeTruthy();
+      expect(groups.has(e.muscle), e.name).toBe(true);
+    }
   });
 });

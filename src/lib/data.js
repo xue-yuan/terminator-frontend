@@ -253,9 +253,10 @@ const derived = createRoot(() => {
       out.push(option);
     };
     for (const e of [...recentExercises(), ...exerciseList()]) {
-      add({ name: e.name, zh: catalogEntry(e.name)?.zh, mine: true });
+      const entry = catalogEntry(e.name);
+      add({ name: e.name, zh: entry?.zh, aka: entry?.aka, mine: true });
     }
-    for (const e of CATALOG) add({ name: e.name, zh: e.zh });
+    for (const e of CATALOG) add({ name: e.name, zh: e.zh, aka: e.aka });
     return out;
   });
 
