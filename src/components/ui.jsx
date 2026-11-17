@@ -148,6 +148,7 @@ export const ChipToggle = (props) => <Segmented {...props} class={`min-w-24 ${pr
 export function LogTabs(props) {
   const tabs = [
     ['/history', 'Workouts', 'workouts'],
+    ['/calendar', 'Calendar', 'calendar'],
     ['/exercises', 'Exercises', 'exercises'],
   ];
   const index = () => tabs.findIndex(([, , key]) => key === props.active);
@@ -156,7 +157,7 @@ export function LogTabs(props) {
       <span
         class="seg-thumb"
         aria-hidden="true"
-        style={{ width: 'calc((100% - 4px) / 2)', transform: `translateX(${index() * 100}%)` }}
+        style={{ width: `calc((100% - 4px) / ${tabs.length})`, transform: `translateX(${index() * 100}%)` }}
       />
       <For each={tabs}>
         {([href, label, key]) => (

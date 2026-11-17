@@ -1,14 +1,15 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import { ChevronRight, Dumbbell, Play } from 'lucide-solid';
 import { summary, workoutList } from '../lib/data';
 import { describeTarget, formatClock, plural } from '../lib/format';
 import { useNow } from '../lib/now';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
-import { totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
+import { muscleWeeks, totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
 import { discardWorkout, useStart } from '../components/StartSheet';
 import { EmptyState, PageHeader, SectionTitle, StatRow } from '../components/ui';
 import ExerciseNumber from '../components/ExerciseNumber';
+import MuscleBars from '../components/MuscleBars';
 import WeekStrip from '../components/WeekStrip';
 import { WorkoutList } from '../components/WorkoutRow';
 
@@ -19,6 +20,7 @@ export default function Home() {
   const s = () => summary.data();
   const plan = () => s()?.active_plan;
   const [picked, setPicked] = createSignal(null);
+  const muscles = createMemo(() => muscleWeeks(2));
   const day = () => {
     const days = plan()?.days ?? [];
     return days.find((d) => d.id === (picked() ?? s()?.next_plan_day_id)) ?? days[0];
@@ -53,6 +55,19 @@ export default function Home() {
         }
       >
         <InProgress onResume={resume} />
+      </Show>
+
+      <Show when={workoutList().length}>
+        <SectionTitle
+          action={
+            <A href="/muscles" class="text-[17px] text-accent">
+              See All
+            </A>
+          }
+        >
+          Sets This Week
+        </SectionTitle>
+        <MuscleBars weeks={muscles()} />
       </Show>
 
       <SectionTitle

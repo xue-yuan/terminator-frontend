@@ -26,6 +26,17 @@
   --warn: #c76a00;
   --bad: #ff3b30;
   --bar: rgb(249 249 249 / 0.82); /* tab bar and mini player, blurred */
+  /* Heat (training calendar, sets per week): one orange hue, few to many. OKLCH
+     L .79 → .565 at hue 42; the lightest step keeps 2:1 against the card. The
+     text on each step is whichever of black and white reads better. */
+  --heat-1: #fe9e79;
+  --heat-2: #ff7335;
+  --heat-3: #e75803;
+  --heat-4: #c34901;
+  --on-heat-1: #000000;
+  --on-heat-2: #000000;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
   color-scheme: light;
 }
 
@@ -49,6 +60,15 @@
     --warn: #ff9f0a;
     --bad: #ff453a;
     --bar: rgb(22 22 23 / 0.8);
+    /* On dark, more is brighter: L .44 → .72 at hue 42. */
+    --heat-1: #8b3201;
+    --heat-2: #b44200;
+    --heat-3: #dd5403;
+    --heat-4: #fe773d;
+    --on-heat-1: #ffffff;
+    --on-heat-2: #ffffff;
+    --on-heat-3: #ffffff;
+    --on-heat-4: #ffffff;
     color-scheme: dark;
   }
 }
@@ -72,6 +92,14 @@
   --warn: #ff9f0a;
   --bad: #ff453a;
   --bar: rgb(22 22 23 / 0.8);
+  --heat-1: #8b3201;
+  --heat-2: #b44200;
+  --heat-3: #dd5403;
+  --heat-4: #fe773d;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
   color-scheme: dark;
 }
 
@@ -485,6 +513,24 @@
       0 3px 8px rgb(0 0 0 / 0.12),
       0 3px 1px rgb(0 0 0 / 0.04);
     transition: transform 280ms var(--ease-ios);
+  }
+
+  /* ---- heat (one step per level, see --heat-N) ---- */
+  .heat-1 {
+    background: var(--heat-1);
+    color: var(--on-heat-1);
+  }
+  .heat-2 {
+    background: var(--heat-2);
+    color: var(--on-heat-2);
+  }
+  .heat-3 {
+    background: var(--heat-3);
+    color: var(--on-heat-3);
+  }
+  .heat-4 {
+    background: var(--heat-4);
+    color: var(--on-heat-4);
   }
 
   /* ---- switch ---- */

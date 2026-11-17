@@ -4,6 +4,7 @@ import { importBatches } from './backup';
 import { updateUser } from './auth';
 import { refreshSpotifyStatus } from './spotify';
 import { exerciseKey } from './exercises';
+import { setCount } from './format';
 import { clearServerCaches, deleteRecords, initialRecords, load, putRecords, save } from './storage';
 import { dropQueued, entriesOf, onRejected, onSynced, queue, rewriteQueued } from './sync';
 import { uuid } from './uuid';
@@ -101,14 +102,23 @@ export const exercises = cachedQuery(documentCache('exercises'), () => api('/exe
 export const bodyWeights = cachedQuery(documentCache('bodyWeights'), () => api('/body-weights/'));
 /** The built-in exercise library, by name: [{ id, name, zh, aka, muscle_group }]. Admins edit it. */
 export const catalog = cachedQuery(documentCache('catalog'), () => api('/catalog'));
+/**
+ * Every workout you've logged, in brief (the training calendar covers all of
+ * history; full workouts are only cached for the recent ones), newest first:
+ * [{ id, performed_at, name, duration_seconds, sets }]
+ */
+export const activity = cachedQuery(documentCache('activity'), () => api('/workouts/activity'));
 
-const QUERIES = { workouts, plans, summary, exercises, body_weights: bodyWeights, catalog };
+const QUERIES = { workouts, plans, summary, exercises, body_weights: bodyWeights, catalog, activity };
 
 /**
  * Something is loading with nothing cached to show yet (the loading bar at the
- * top). Refreshing data that is already on screen happens silently.
+ * top). Refreshing data that is already on screen happens silently. The brief
+ * list of all workouts doesn't count: until it's there, the calendar shows the
+ * recent workouts it already has.
  */
-export const firstLoad = () => Object.values(QUERIES).some((q) => q.loading() && q.data() == null);
+export const firstLoad = () =>
+  Object.entries(QUERIES).some(([kind, q]) => kind !== 'activity' && q.loading() && q.data() == null);
 
 // Fingerprints (GET /sync/state) of what the device has: each kind is fetched
 // again only when the server's fingerprint moved, so coming back to the app is
@@ -279,13 +289,47 @@ const derived = createRoot(() => {
     return [...byId.values()].sort((a, b) => Date.parse(b.measured_at) - Date.parse(a.measured_at));
   });
 
-  return { workoutList, exerciseList, byId, byKey, catalogByKey, recentExercises, exerciseOptions, bodyWeightList };
+  // The recent workouts (with local changes) are taken as they are on the device.
+  const activityList = createMemo(() => {
+    const byId = new Map((activity.data() ?? []).map((a) => [a.id, a]));
+    for (const w of workoutList()) byId.set(w.id, activityOf(w));
+    for (const entry of entriesOf('workout')) if (entry.op === 'delete') byId.delete(entry.entityId);
+    return [...byId.values()];
+  });
+
+  return {
+    workoutList,
+    exerciseList,
+    byId,
+    byKey,
+    catalogByKey,
+    recentExercises,
+    exerciseOptions,
+    bodyWeightList,
+    activityList,
+  };
 });
+
+/**
+ * A workout in brief, as GET /workouts/activity lists it. (A function
+ * declaration: the views above already use it while this module loads.)
+ */
+export function activityOf(w) {
+  return {
+    id: w.id,
+    performed_at: w.performed_at,
+    name: w.name ?? null,
+    duration_seconds: w.duration_seconds ?? null,
+    sets: setCount(w),
+  };
+}
 
 /** Server workouts with unsynced local changes applied, newest first. */
 export const workoutList = derived.workoutList;
 /** Your weigh-ins (including unsynced ones), newest first: [{ id, measured_at, weight, unit, pending? }] */
 export const bodyWeightList = derived.bodyWeightList;
+/** All of your workouts in brief, unsynced ones included (in no particular order). See `activity`. */
+export const activityList = derived.activityList;
 /** Your exercises, including ones created or edited offline. */
 export const exerciseList = derived.exerciseList;
 export const exerciseById = (id) => derived.byId().get(id) ?? null;
@@ -452,6 +496,13 @@ onSynced(async (results) => {
       });
     }
     applyToProgress(done);
+    if (activity.data()) {
+      activity.update((list) => {
+        const touched = new Set(done.map(({ entry }) => entry.entityId));
+        const saved = done.filter((r) => r.entry.op === 'upsert' && r.result).map((r) => activityOf(r.result));
+        return [...list.filter((a) => !touched.has(a.id)), ...saved].sort(byDateDesc);
+      });
+    }
     refreshing.push(summary.refresh());
   }
   // Put saved exercises in the cache right away: once their queue entry is gone,
@@ -479,7 +530,7 @@ onSynced(async (results) => {
   }
   await Promise.all(refreshing);
   const kinds = [
-    ...(done.length ? ['workouts', 'summary', 'exercises'] : []),
+    ...(done.length ? ['workouts', 'summary', 'exercises', ...(activity.data() ? ['activity'] : [])] : []),
     ...(savedExercises.length ? ['exercises'] : []),
     ...(weighIns.length ? ['body_weights'] : []),
   ];

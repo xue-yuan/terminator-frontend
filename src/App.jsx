@@ -5,12 +5,14 @@ import AppLayout, { UpdatePrompt } from './components/Layout';
 import { Toaster } from './components/ui';
 import Admin from './pages/Admin';
 import Body from './pages/Body';
+import Calendar from './pages/Calendar';
 import ExerciseDetail from './pages/ExerciseDetail';
 import Exercises from './pages/Exercises';
 import History from './pages/History';
 import Library from './pages/Library';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Muscles from './pages/Muscles';
 import PlanDetail from './pages/PlanDetail';
 import PlanEditor from './pages/PlanEditor';
 import Plans from './pages/Plans';
@@ -53,7 +55,9 @@ export default function App() {
       <Route path="/" component={RequireAuth}>
         <Route path="/" component={Home} />
         <Route path="/session" component={Session} />
+        <Route path="/muscles" component={Muscles} />
         <Route path="/history" component={History} />
+        <Route path="/calendar" component={Calendar} />
         <Route path="/workouts/:id" component={WorkoutDetail} />
         <Route path="/exercises" component={Exercises} />
         <Route path="/exercises/:id" component={ExerciseDetail} />

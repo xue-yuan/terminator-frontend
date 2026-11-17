@@ -74,10 +74,10 @@ export default function AppLayout(props) {
 }
 
 // Tab bar, left to right; null is the Start button in the middle. `match`
-// says which pages light a tab up (Log covers workouts and exercises too).
+// says which pages light a tab up (Log covers workouts, the calendar and exercises too).
 const TABS = [
-  { href: '/', label: 'Today', icon: House, match: /^\/$/ },
-  { href: '/history', label: 'Log', icon: History, match: /^\/(history|exercises|workouts)(\/|$)/ },
+  { href: '/', label: 'Today', icon: House, match: /^\/(muscles\/?)?$/ },
+  { href: '/history', label: 'Log', icon: History, match: /^\/(history|calendar|exercises|workouts)(\/|$)/ },
   null,
   { href: '/plans', label: 'Plans', icon: ClipboardList, match: /^\/plans(\/|$)/ },
   { href: '/profile', label: 'You', icon: CircleUser, match: /^\/(profile|body|admin)(\/|$)/ },

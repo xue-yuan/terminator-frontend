@@ -13,7 +13,7 @@ export function markStart() {
 }
 
 /** Pages at the root of a bottom tab: switching between them is not a push. */
-export const isTabRoot = (path) => /^\/(history|exercises|plans|profile)?\/?$/.test(path);
+export const isTabRoot = (path) => /^\/(history|calendar|exercises|plans|profile)?\/?$/.test(path);
 
 /**
  * Back like iOS: to the page you came from (keeping its scroll position) when

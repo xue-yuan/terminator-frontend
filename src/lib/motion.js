@@ -13,6 +13,25 @@ export function enter(el, { y = 10, duration = 260 } = {}) {
 }
 
 /**
+ * A bar growing from its left end to its length (revealed, so its rounded ends
+ * keep their shape); `delay` staggers a list of them.
+ */
+export function growIn(el, { delay = 0 } = {}) {
+  if (!el?.animate) return;
+  const keyframes = reducedMotion()
+    ? [{ opacity: 0 }, { opacity: 1 }]
+    : [{ clipPath: 'inset(0 100% 0 0 round 9999px)' }, { clipPath: 'inset(0 0 0 0 round 9999px)' }];
+  el.animate(keyframes, { duration: 650, delay, easing: IOS_EASE, fill: 'backwards' });
+}
+
+/** Content replaced sideways (the next month): it comes in from the side you're heading to. */
+export function slideIn(el, direction) {
+  if (!el?.animate) return;
+  const from = reducedMotion() ? { opacity: 0 } : { opacity: 0, transform: `translateX(${direction * 28}px)` };
+  el.animate([from, { opacity: 1, transform: 'none' }], { duration: 300, easing: IOS_EASE });
+}
+
+/**
  * A page arriving: 'push' slides in from the right, 'pop' from the left (the
  * page you go back to), 'fade' for switching tabs.
  */
