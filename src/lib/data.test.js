@@ -60,7 +60,7 @@ describe('the exercise library', () => {
   it('labels your exercises with its Chinese names and muscle groups', () => {
     expect(data.catalogEntry('  pec deck ')).toMatchObject({ zh: '蝴蝶機夾胸', muscle_group: 'chest' });
     expect(data.muscleOf({ name: 'Pec Deck', muscle_group: null })).toBe('chest');
-    expect(data.muscleOf({ name: 'Pec Deck', muscle_group: 'arms' })).toBe('arms'); // your own choice wins
+    expect(data.muscleOf({ name: 'Pec Deck', muscle_group: 'biceps' })).toBe('biceps'); // your own choice wins
     expect(data.catalogEntry('下胸機械')).toBeNull(); // a name, not an alias
   });
 

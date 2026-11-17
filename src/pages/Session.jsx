@@ -279,10 +279,10 @@ function SessionHeader(props) {
     <div
       data-pull-handle
       class="bar sticky top-0 z-30 -mx-4 border-b-[0.5px] border-separator px-4"
-      style={{ 'padding-top': 'env(safe-area-inset-top)' }}
+      style={{ 'padding-top': 'calc(env(safe-area-inset-top) + 0.625rem)' }}
     >
       {/* Says it can be pulled down, like a sheet. */}
-      <div class="grabber !mt-1.5" aria-hidden="true" />
+      <div class="grabber mb-[3px]" aria-hidden="true" />
       <div class="flex h-12 items-center gap-2">
         <div class="flex w-20 shrink-0">
           <button
@@ -769,7 +769,8 @@ function Stepper(props) {
     'flex w-11 shrink-0 items-center justify-center text-accent transition-colors active:bg-fill-2 disabled:opacity-40';
   return (
     <div class="min-w-0">
-      <div class="flex items-center justify-between gap-2 pl-1">
+      {/* Tall enough for the BW button, in both steppers so the two stay level. */}
+      <div class="flex h-6 items-center justify-between gap-2 pl-1">
         <label class="t-cap truncate font-medium text-label-2 uppercase" for={props.id}>
           {props.label}
         </label>
@@ -779,7 +780,7 @@ function Stepper(props) {
             type="button"
             title="Bodyweight"
             aria-pressed={bodyweight()}
-            class="relative -my-1 h-6 shrink-0 rounded-full px-2.5 text-[12px] font-bold transition-colors before:absolute before:-inset-x-1.5 before:-inset-y-3 before:content-['']"
+            class="relative h-6 shrink-0 rounded-full px-2.5 text-[12px] font-bold transition-colors before:absolute before:-inset-x-1.5 before:-inset-y-2 before:content-['']"
             classList={{ 'bg-accent text-on-accent': bodyweight(), 'bg-fill text-accent': !bodyweight() }}
             onClick={() => {
               buzz();
@@ -790,7 +791,7 @@ function Stepper(props) {
           </button>
         </Show>
       </div>
-      <div class="mt-1 flex h-14 overflow-hidden rounded-xl bg-fill">
+      <div class="mt-1.5 flex h-14 overflow-hidden rounded-xl bg-fill">
         <button
           type="button"
           class={button}

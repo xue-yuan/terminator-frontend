@@ -277,7 +277,7 @@ export function Sheet(props) {
       onClick={(e) => e.target === dialog && !props.locked && props.onClose()}
     >
       <div
-        class="sticky top-0 z-10 touch-none bg-bg px-4 pb-2"
+        class="sticky top-0 z-10 touch-none bg-bg px-4 pt-1.5 pb-2"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

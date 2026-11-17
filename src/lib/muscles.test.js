@@ -39,7 +39,8 @@ describe('weeklyMuscleSets', () => {
       'back',
       'legs',
       'shoulders',
-      'arms',
+      'biceps',
+      'triceps',
       'core',
       'other',
     ]);
@@ -48,8 +49,21 @@ describe('weeklyMuscleSets', () => {
       'Back',
       'Legs',
       'Shoulders',
-      'Arms',
+      'Biceps',
+      'Triceps',
       'Core',
     ]);
+  });
+});
+
+describe('a muscle group this version doesn’t know', () => {
+  it('counts under Other instead of going missing (e.g. a cached "arms")', () => {
+    const monday = new Date(2026, 10, 16);
+    const [week] = weeklyMuscleSets(
+      [{ performed_at: new Date(2026, 10, 17, 18).toISOString(), items: [item('Curl', 3), item('Bench', 2)] }],
+      [monday],
+      (it) => (it.exercise_name === 'Curl' ? 'arms' : 'chest'),
+    );
+    expect(week.sets).toEqual({ other: 3, chest: 2 });
   });
 });

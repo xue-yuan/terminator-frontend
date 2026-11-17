@@ -2,12 +2,16 @@
 
 import { startOfWeek } from './dates';
 import { MUSCLE_GROUPS } from './exercises';
+
+const KNOWN = new Set(MUSCLE_GROUPS.map(([key]) => key));
 import { workingSets } from './format';
 
 /**
  * Working sets per muscle group in each of the weeks starting on `mondays`.
  * `muscleOfItem(item)` names the group of a logged exercise (null: none, which
- * counts as Other). -> [{ monday, sets: { chest: 12, ... }, total }]
+ * counts as Other, as does a group this version doesn't know, e.g. a device's
+ * cached "arms" from before biceps and triceps were split, until it refreshes).
+ * -> [{ monday, sets: { chest: 12, ... }, total }]
  */
 export function weeklyMuscleSets(workouts, mondays, muscleOfItem) {
   const index = new Map(mondays.map((monday, i) => [monday.getTime(), i]));
@@ -18,7 +22,8 @@ export function weeklyMuscleSets(workouts, mondays, muscleOfItem) {
     for (const item of w.items) {
       const n = workingSets(item.sets).length;
       if (!n) continue;
-      const group = muscleOfItem(item) ?? 'other';
+      const named = muscleOfItem(item);
+      const group = KNOWN.has(named) ? named : 'other';
       week.sets[group] = (week.sets[group] ?? 0) + n;
       week.total += n;
     }

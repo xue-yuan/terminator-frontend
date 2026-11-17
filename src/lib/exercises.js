@@ -9,7 +9,8 @@ export const MUSCLE_GROUPS = [
   ['back', 'Back', '背'],
   ['legs', 'Legs', '腿'],
   ['shoulders', 'Shoulders', '肩'],
-  ['arms', 'Arms', '手臂'],
+  ['biceps', 'Biceps', '二頭'],
+  ['triceps', 'Triceps', '三頭'],
   ['core', 'Core', '核心'],
   ['other', 'Other', '其他'],
 ];

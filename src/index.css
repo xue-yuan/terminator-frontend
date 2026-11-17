@@ -1022,10 +1022,13 @@
       }
     }
   }
+  /* Space above it comes from the parent's padding: a margin would collapse
+     through a parent without top padding, and a sticky header would then
+     hold the grabber flush against the top edge once scrolled. */
   .grabber {
     width: 36px;
     height: 5px;
-    margin: 6px auto 0;
+    margin: 0 auto;
     border-radius: 9999px;
     background: var(--label-3);
     opacity: 0.6;

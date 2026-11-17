@@ -20,15 +20,15 @@ describe('groupAfterRename', () => {
     expect(groupAfterRename({ name: 'dumbbell fly', original, current: 'shoulders', libraryGroup: 'chest' })).toBe(
       'chest',
     );
-    const ownChoice = { name: 'Pec Deck', group: 'arms' }; // set by hand, unlike the library's chest
+    const ownChoice = { name: 'Pec Deck', group: 'triceps' }; // set by hand, unlike the library's chest
     expect(groupAfterRename({ name: 'Pec Deck', original: ownChoice, current: 'chest', libraryGroup: 'chest' })).toBe(
-      'arms',
+      'triceps',
     );
   });
 
   it('never overrides a group picked by hand', () => {
     expect(
-      groupAfterRename({ name: 'Lateral Raise', original, current: 'arms', picked: true, libraryGroup: 'shoulders' }),
-    ).toBe('arms');
+      groupAfterRename({ name: 'Lateral Raise', original, current: 'biceps', picked: true, libraryGroup: 'shoulders' }),
+    ).toBe('biceps');
   });
 });
