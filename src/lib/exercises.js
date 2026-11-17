@@ -32,6 +32,19 @@ export const POPULAR = [
 /** Normalised identity of an exercise name. */
 export const exerciseKey = (name) => (name ?? '').trim().toLowerCase();
 
+/**
+ * The muscle group to show while renaming an exercise to `name`: the library's
+ * for that name (renaming "Dumbbell Fly" to "Lateral Raise" makes it a
+ * shoulder exercise), the exercise's own again when the name is back to what
+ * it was, otherwise what is shown now. A group picked by hand always stays.
+ * original: { name, group }; libraryGroup: the library's group for `name`, if any.
+ */
+export function groupAfterRename({ name, original, current, picked, libraryGroup }) {
+  if (picked) return current;
+  if (exerciseKey(name) === exerciseKey(original.name)) return original.group;
+  return libraryGroup ?? current;
+}
+
 /** Does an option ({ name, zh?, aka? }) match what was typed? */
 export function matchesQuery(option, query) {
   const q = exerciseKey(query);

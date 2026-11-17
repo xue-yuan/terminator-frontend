@@ -3,32 +3,61 @@
 /* ---------------------------------------------------------------------------
    iOS-style design system
    Grouped background, inset rounded cards with hairline separators, the system
-   font, one orange tint. Light by default; dark follows the system unless set
-   in Profile.
+   font, one tint colour. Profile → Appearance picks a theme (data-palette on
+   <html>) and light or dark (data-theme, always set: by index.html before the
+   first paint, then by lib/theme.js).
 --------------------------------------------------------------------------- */
 
+/* Shared by every theme: status colours and the glass of the floating bars. */
 :root {
-  --bg: #f2f2f7; /* systemGroupedBackground */
-  --card: #ffffff; /* secondarySystemGroupedBackground */
-  --elevated: #ffffff; /* sheets, the selected segment */
+  --ok: #248a3d;
+  --switch-on: #34c759;
+  --warn: #c76a00;
+  --bad: #ff3b30;
+  --glass-edge: rgb(255 255 255 / 0.9);
+  --glass-line: rgb(0 0 0 / 0.07);
+  --glass-shadow: 0 10px 30px rgb(0 0 0 / 0.12), 0 1px 4px rgb(0 0 0 / 0.06);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --ok: #30d158;
+  --switch-on: #30d158;
+  --warn: #ff9f0a;
+  --bad: #ff453a;
+  --glass-edge: rgb(255 255 255 / 0.16);
+  --glass-line: rgb(255 255 255 / 0.09);
+  --glass-shadow: 0 10px 30px rgb(0 0 0 / 0.55), 0 1px 4px rgb(0 0 0 / 0.3);
+  color-scheme: dark;
+}
+
+/*
+  Themes. Each sets the same tokens for light and for dark, so an element can
+  show another theme than the page (data-palette on it: the theme picker).
+  Accent: links, buttons (on-accent text on it), the selected tab. accent-2:
+  the far end of the avatar gradient. Heat: one hue, few to many (calendar,
+  sets per week); the step nearest the card keeps 2:1 against it, and the text
+  on each step is whichever of black and white reads better. All checked with
+  a palette validator; Ember is the original look.
+*/
+/* Ember, light */
+:root,
+[data-palette='ember'] {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
   --fill: rgb(118 118 128 / 0.12);
   --fill-2: rgb(118 118 128 / 0.2);
   --label: #000000;
   --label-2: #6e6e73;
   --label-3: #aeaeb2;
   --separator: #c6c6c8;
+  --bar: rgb(249 249 249 / 0.82);
   --accent: #ff5a00;
   --on-accent: #ffffff;
   --accent-soft: rgb(255 90 0 / 0.13);
+  --accent-2: #ff9a3c;
   --chart-line: #ff5a00;
-  --ok: #248a3d;
-  --switch-on: #34c759;
-  --warn: #c76a00;
-  --bad: #ff3b30;
-  --bar: rgb(249 249 249 / 0.82); /* tab bar and mini player, blurred */
-  /* Heat (training calendar, sets per week): one orange hue, few to many. OKLCH
-     L .79 → .565 at hue 42; the lightest step keeps 2:1 against the card. The
-     text on each step is whichever of black and white reads better. */
   --heat-1: #fe9e79;
   --heat-2: #ff7335;
   --heat-3: #e75803;
@@ -37,43 +66,11 @@
   --on-heat-2: #000000;
   --on-heat-3: #ffffff;
   --on-heat-4: #ffffff;
-  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #000000;
-    --card: #1c1c1e;
-    --elevated: #2c2c2e;
-    --fill: rgb(118 118 128 / 0.24);
-    --fill-2: rgb(118 118 128 / 0.36);
-    --label: #ffffff;
-    --label-2: #98989f;
-    --label-3: #636366;
-    --separator: #38383a;
-    --accent: #ff6a1a;
-    --on-accent: #ffffff;
-    --accent-soft: rgb(255 106 26 / 0.2);
-    --chart-line: #ff7a33;
-    --ok: #30d158;
-    --switch-on: #30d158;
-    --warn: #ff9f0a;
-    --bad: #ff453a;
-    --bar: rgb(22 22 23 / 0.8);
-    /* On dark, more is brighter: L .44 → .72 at hue 42. */
-    --heat-1: #8b3201;
-    --heat-2: #b44200;
-    --heat-3: #dd5403;
-    --heat-4: #fe773d;
-    --on-heat-1: #ffffff;
-    --on-heat-2: #ffffff;
-    --on-heat-3: #ffffff;
-    --on-heat-4: #ffffff;
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme='dark'] {
+/* Ember, dark */
+[data-theme='dark'],
+[data-theme='dark'] [data-palette='ember'] {
   --bg: #000000;
   --card: #1c1c1e;
   --elevated: #2c2c2e;
@@ -83,15 +80,12 @@
   --label-2: #98989f;
   --label-3: #636366;
   --separator: #38383a;
+  --bar: rgb(22 22 23 / 0.8);
   --accent: #ff6a1a;
   --on-accent: #ffffff;
   --accent-soft: rgb(255 106 26 / 0.2);
+  --accent-2: #ff9a3c;
   --chart-line: #ff7a33;
-  --ok: #30d158;
-  --switch-on: #30d158;
-  --warn: #ff9f0a;
-  --bad: #ff453a;
-  --bar: rgb(22 22 23 / 0.8);
   --heat-1: #8b3201;
   --heat-2: #b44200;
   --heat-3: #dd5403;
@@ -100,7 +94,391 @@
   --on-heat-2: #ffffff;
   --on-heat-3: #ffffff;
   --on-heat-4: #ffffff;
-  color-scheme: dark;
+}
+
+/* Ocean, light */
+[data-palette='ocean'] {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --fill: rgb(118 118 128 / 0.12);
+  --fill-2: rgb(118 118 128 / 0.2);
+  --label: #000000;
+  --label-2: #6e6e73;
+  --label-3: #aeaeb2;
+  --separator: #c6c6c8;
+  --bar: rgb(249 249 249 / 0.82);
+  --accent: #0a6cff;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(10 108 255 / 0.13);
+  --accent-2: #7e83ff;
+  --chart-line: #0a6cff;
+  --heat-1: #8bb6ff;
+  --heat-2: #639dfe;
+  --heat-3: #3d82f8;
+  --heat-4: #256ade;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Ocean, dark */
+[data-theme='dark'][data-palette='ocean'],
+[data-theme='dark'] [data-palette='ocean'] {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --elevated: #2c2c2e;
+  --fill: rgb(118 118 128 / 0.24);
+  --fill-2: rgb(118 118 128 / 0.36);
+  --label: #ffffff;
+  --label-2: #98989f;
+  --label-3: #636366;
+  --separator: #38383a;
+  --bar: rgb(22 22 23 / 0.8);
+  --accent: #3a8dff;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(58 141 255 / 0.2);
+  --accent-2: #94a3ff;
+  --chart-line: #5098fe;
+  --heat-1: #024da4;
+  --heat-2: #0063d1;
+  --heat-3: #2a7eef;
+  --heat-4: #559bfe;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Forest, light */
+[data-palette='forest'] {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --fill: rgb(118 118 128 / 0.12);
+  --fill-2: rgb(118 118 128 / 0.2);
+  --label: #000000;
+  --label-2: #6e6e73;
+  --label-3: #aeaeb2;
+  --separator: #c6c6c8;
+  --bar: rgb(249 249 249 / 0.82);
+  --accent: #1e8a4c;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(30 138 76 / 0.13);
+  --accent-2: #0da784;
+  --chart-line: #1e8a4c;
+  --heat-1: #65c886;
+  --heat-2: #4cb06f;
+  --heat-3: #319859;
+  --heat-4: #0c8144;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Forest, dark */
+[data-theme='dark'][data-palette='forest'],
+[data-theme='dark'] [data-palette='forest'] {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --elevated: #2c2c2e;
+  --fill: rgb(118 118 128 / 0.24);
+  --fill-2: rgb(118 118 128 / 0.36);
+  --label: #ffffff;
+  --label-2: #98989f;
+  --label-3: #636366;
+  --separator: #38383a;
+  --bar: rgb(22 22 23 / 0.8);
+  --accent: #34c46e;
+  --on-accent: #000000;
+  --accent-soft: rgb(52 196 110 / 0.2);
+  --accent-2: #0be3b3;
+  --chart-line: #41ce77;
+  --heat-1: #015c2c;
+  --heat-2: #03773c;
+  --heat-3: #05944c;
+  --heat-4: #11b25d;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Grape, light */
+[data-palette='grape'] {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --fill: rgb(118 118 128 / 0.12);
+  --fill-2: rgb(118 118 128 / 0.2);
+  --label: #000000;
+  --label-2: #6e6e73;
+  --label-3: #aeaeb2;
+  --separator: #c6c6c8;
+  --bar: rgb(249 249 249 / 0.82);
+  --accent: #7c4ddb;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(124 77 219 / 0.13);
+  --accent-2: #b55de5;
+  --chart-line: #7c4ddb;
+  --heat-1: #bba8fe;
+  --heat-2: #a787fe;
+  --heat-3: #926bef;
+  --heat-4: #7c53d5;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Grape, dark */
+[data-theme='dark'][data-palette='grape'],
+[data-theme='dark'] [data-palette='grape'] {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --elevated: #2c2c2e;
+  --fill: rgb(118 118 128 / 0.24);
+  --fill-2: rgb(118 118 128 / 0.36);
+  --label: #ffffff;
+  --label-2: #98989f;
+  --label-3: #636366;
+  --separator: #38383a;
+  --bar: rgb(22 22 23 / 0.8);
+  --accent: #a37cff;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(163 124 255 / 0.2);
+  --accent-2: #d894fe;
+  --chart-line: #ab8aff;
+  --heat-1: #6032b0;
+  --heat-2: #784dcc;
+  --heat-3: #9068e9;
+  --heat-4: #a887fe;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Rose, light */
+[data-palette='rose'] {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --fill: rgb(118 118 128 / 0.12);
+  --fill-2: rgb(118 118 128 / 0.2);
+  --label: #000000;
+  --label-2: #6e6e73;
+  --label-3: #aeaeb2;
+  --separator: #c6c6c8;
+  --bar: rgb(249 249 249 / 0.82);
+  --accent: #e0336c;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(224 51 108 / 0.13);
+  --accent-2: #fe605c;
+  --chart-line: #e0336c;
+  --heat-1: #ff94ab;
+  --heat-2: #fe648d;
+  --heat-3: #e34b77;
+  --heat-4: #c93061;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Rose, dark */
+[data-theme='dark'][data-palette='rose'],
+[data-theme='dark'] [data-palette='rose'] {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --elevated: #2c2c2e;
+  --fill: rgb(118 118 128 / 0.24);
+  --fill-2: rgb(118 118 128 / 0.36);
+  --label: #ffffff;
+  --label-2: #98989f;
+  --label-3: #636366;
+  --separator: #38383a;
+  --bar: rgb(22 22 23 / 0.8);
+  --accent: #fb598a;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(251 89 138 / 0.2);
+  --accent-2: #fe9691;
+  --chart-line: #ff6c95;
+  --heat-1: #9e0147;
+  --heat-2: #bf265d;
+  --heat-3: #dd4676;
+  --heat-4: #fc638f;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Graphite, light */
+[data-palette='graphite'] {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --fill: rgb(118 118 128 / 0.12);
+  --fill-2: rgb(118 118 128 / 0.2);
+  --label: #000000;
+  --label-2: #6e6e73;
+  --label-3: #aeaeb2;
+  --separator: #c6c6c8;
+  --bar: rgb(249 249 249 / 0.82);
+  --accent: #1c1c1e;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(28 28 30 / 0.08);
+  --accent-2: #636366;
+  --chart-line: #1c1c1e;
+  --heat-1: #b4b4b4;
+  --heat-2: #9d9d9d;
+  --heat-3: #868686;
+  --heat-4: #707070;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Graphite, dark */
+[data-theme='dark'][data-palette='graphite'],
+[data-theme='dark'] [data-palette='graphite'] {
+  --bg: #000000;
+  --card: #1c1c1e;
+  --elevated: #2c2c2e;
+  --fill: rgb(118 118 128 / 0.24);
+  --fill-2: rgb(118 118 128 / 0.36);
+  --label: #ffffff;
+  --label-2: #98989f;
+  --label-3: #636366;
+  --separator: #38383a;
+  --bar: rgb(22 22 23 / 0.8);
+  --accent: #f2f2f7;
+  --on-accent: #000000;
+  --accent-soft: rgb(242 242 247 / 0.16);
+  --accent-2: #aeaeb2;
+  --chart-line: #e4e4e9;
+  --heat-1: #505050;
+  --heat-2: #676767;
+  --heat-3: #808080;
+  --heat-4: #9a9a9a;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Sand, light */
+[data-palette='sand'] {
+  --bg: #f3eee6;
+  --card: #fffcf7;
+  --elevated: #fffcf7;
+  --fill: rgb(120 98 70 / 0.12);
+  --fill-2: rgb(120 98 70 / 0.2);
+  --label: #1f1a14;
+  --label-2: #74685a;
+  --label-3: #b5a998;
+  --separator: #d8cdbd;
+  --bar: rgb(250 246 239 / 0.82);
+  --accent: #bd5a2c;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(189 90 44 / 0.13);
+  --accent-2: #d27f27;
+  --chart-line: #bd5a2c;
+  --heat-1: #fe996e;
+  --heat-2: #e78053;
+  --heat-3: #cd693c;
+  --heat-4: #b45223;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Sand, dark */
+[data-theme='dark'][data-palette='sand'],
+[data-theme='dark'] [data-palette='sand'] {
+  --bg: #14110e;
+  --card: #221d18;
+  --elevated: #2e2822;
+  --fill: rgb(140 118 92 / 0.24);
+  --fill-2: rgb(140 118 92 / 0.36);
+  --label: #f6f0e7;
+  --label-2: #a99c8c;
+  --label-3: #6e6457;
+  --separator: #3b342c;
+  --bar: rgb(30 26 22 / 0.8);
+  --accent: #d97b4e;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(217 123 78 / 0.2);
+  --accent-2: #eea052;
+  --chart-line: #e38457;
+  --heat-1: #893702;
+  --heat-2: #a74e1f;
+  --heat-3: #c4683b;
+  --heat-4: #e08255;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Midnight, light */
+[data-palette='midnight'] {
+  --bg: #edf1f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --fill: rgb(100 116 145 / 0.12);
+  --fill-2: rgb(100 116 145 / 0.2);
+  --label: #0b1220;
+  --label-2: #5d6880;
+  --label-3: #a3adc0;
+  --separator: #c9d1de;
+  --bar: rgb(244 247 251 / 0.82);
+  --accent: #0e7490;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(14 116 144 / 0.13);
+  --accent-2: #4b8ab6;
+  --chart-line: #0e7490;
+  --heat-1: #46c1e9;
+  --heat-2: #24a9d0;
+  --heat-3: #0a91b4;
+  --heat-4: #087997;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Midnight, dark */
+[data-theme='dark'][data-palette='midnight'],
+[data-theme='dark'] [data-palette='midnight'] {
+  --bg: #05080f;
+  --card: #111827;
+  --elevated: #1c2436;
+  --fill: rgb(110 128 160 / 0.22);
+  --fill-2: rgb(110 128 160 / 0.34);
+  --label: #f1f5fb;
+  --label-2: #919db5;
+  --label-3: #566179;
+  --separator: #273047;
+  --bar: rgb(14 19 31 / 0.8);
+  --accent: #22c3e6;
+  --on-accent: #000000;
+  --accent-soft: rgb(34 195 230 / 0.2);
+  --accent-2: #93d6fe;
+  --chart-line: #34cdf0;
+  --heat-1: #015566;
+  --heat-2: #076f84;
+  --heat-3: #058aa4;
+  --heat-4: #01a6c6;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
 }
 
 @theme inline {
@@ -116,6 +494,7 @@
   --color-accent: var(--accent);
   --color-on-accent: var(--on-accent);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
@@ -657,6 +1036,37 @@
     background: var(--bar);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
     backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* ---- Liquid Glass (iOS 26): the floating tab bar and what sits on it ---- */
+  .glass {
+    background: color-mix(in srgb, var(--card) 70%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(190%);
+    backdrop-filter: blur(24px) saturate(190%);
+    box-shadow:
+      inset 0 0.5px 0 var(--glass-edge),
+      0 0 0 0.5px var(--glass-line),
+      var(--glass-shadow);
+  }
+  /* The selected tab's pill; slides between tabs (components/Layout.jsx). */
+  .tab-lens {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc((100% - 8px) / 4);
+    border-radius: 9999px;
+    background: var(--fill);
+    transition: transform 420ms var(--ease-ios);
+  }
+  /* Content scrolling under the floating bars fades out instead of clashing with them. */
+  .scroll-edge {
+    background: linear-gradient(
+      to top,
+      var(--bg) 0%,
+      color-mix(in srgb, var(--bg) 75%, transparent) 40%,
+      transparent 100%
+    );
   }
 
   /* ---- toasts: a banner that drops in from the top (components/ui.jsx Toaster) ---- */

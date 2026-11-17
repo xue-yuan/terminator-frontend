@@ -61,7 +61,8 @@ export default function AppLayout(props) {
         {props.children}
       </main>
       <Show when={!fullscreen()}>
-        <div class="fixed inset-x-0 bottom-0 z-40" data-bottom-bar>
+        <div class="pointer-events-none fixed inset-x-0 bottom-0 z-40" data-bottom-bar>
+          <div class="scroll-edge absolute inset-x-0 -top-6 bottom-0" aria-hidden="true" />
           <Show when={draft()}>
             <MiniPlayer />
           </Show>
@@ -73,12 +74,15 @@ export default function AppLayout(props) {
   );
 }
 
-// Tab bar, left to right; null is the Start button in the middle. `match`
-// says which pages light a tab up (Log covers workouts, the calendar and exercises too).
+// Space under the floating bars: just above the home indicator, or a little
+// margin on phones without one.
+const BAR_GAP = 'max(0.75rem, calc(env(safe-area-inset-bottom) - 0.5rem))';
+
+// Tabs, left to right; `match` says which pages light a tab up (Log covers
+// workouts, the calendar and exercises too).
 const TABS = [
   { href: '/', label: 'Today', icon: House, match: /^\/(muscles\/?)?$/ },
   { href: '/history', label: 'Log', icon: History, match: /^\/(history|calendar|exercises|workouts)(\/|$)/ },
-  null,
   { href: '/plans', label: 'Plans', icon: ClipboardList, match: /^\/plans(\/|$)/ },
   { href: '/profile', label: 'You', icon: CircleUser, match: /^\/(profile|body|admin)(\/|$)/ },
 ];
@@ -87,48 +91,46 @@ function Tab(props) {
   return (
     <A
       href={props.tab.href}
-      class="flex h-full flex-col items-center justify-center gap-0.5 text-[10px] font-medium text-label-3 transition-transform duration-150 active:scale-90"
-      classList={{ '!text-accent': props.active }}
+      class="relative flex h-full flex-col items-center justify-center gap-0.5 rounded-full text-[10px] font-semibold transition-[color,transform] duration-200 active:scale-90"
+      classList={{ 'text-accent': props.active, 'text-label': !props.active }}
       aria-current={props.active ? 'page' : undefined}
     >
-      <Dynamic component={props.tab.icon} size={25} strokeWidth={props.active ? 2.25 : 1.75} />
+      <Dynamic component={props.tab.icon} size={24} strokeWidth={props.active ? 2.25 : 1.85} />
       {props.tab.label}
     </A>
   );
 }
 
+/**
+ * iOS 26 style: the tabs in a floating glass capsule, the selected one on a
+ * pill that slides between them, and Start set apart as its own round button
+ * (like Search in Apple's apps).
+ */
 function TabBar() {
   const location = useLocation();
   const { openSheet } = useStart();
-  const current = () => TABS.findIndex((tab) => tab?.match.test(location.pathname));
+  const current = () => TABS.findIndex((tab) => tab.match.test(location.pathname));
 
   return (
-    <nav class="bar border-t-[0.5px] border-separator" aria-label="Main">
-      {/* The row spans the home indicator's area too, so the tabs sit in the middle
-          of the bar you see, not crowded at its top. Same total height as before. */}
-      <div
-        class="mx-auto grid max-w-xl grid-cols-5 px-2"
-        style={{ height: 'calc(3.25rem + env(safe-area-inset-bottom))' }}
-      >
-        <For each={TABS}>
-          {(tab, i) =>
-            tab ? (
-              <Tab tab={tab} active={current() === i()} />
-            ) : (
-              <div class="flex items-center justify-center">
-                <button
-                  type="button"
-                  class="flex h-11 w-14 items-center justify-center rounded-full bg-accent text-on-accent shadow-[0_4px_12px_var(--accent-soft)] transition-transform duration-150 active:scale-90"
-                  aria-label={draft() ? 'Resume workout' : 'Start workout'}
-                  onClick={openSheet}
-                >
-                  <Plus size={26} strokeWidth={2.5} />
-                </button>
-              </div>
-            )
-          }
-        </For>
+    <nav
+      class="relative mx-auto flex max-w-xl items-center gap-2.5 px-4"
+      style={{ 'padding-bottom': BAR_GAP }}
+      aria-label="Main"
+    >
+      <div class="glass pointer-events-auto relative grid h-16 flex-1 grid-cols-4 rounded-full p-1">
+        <Show when={current() >= 0}>
+          <span class="tab-lens" aria-hidden="true" style={{ transform: `translateX(${current() * 100}%)` }} />
+        </Show>
+        <For each={TABS}>{(tab, i) => <Tab tab={tab} active={current() === i()} />}</For>
       </div>
+      <button
+        type="button"
+        class="pointer-events-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent shadow-[inset_0_0.5px_0_rgb(255_255_255/0.35),var(--glass-shadow)] transition-transform duration-200 active:scale-90"
+        aria-label={draft() ? 'Resume workout' : 'Start workout'}
+        onClick={openSheet}
+      >
+        <Plus size={28} strokeWidth={2.5} />
+      </button>
     </nav>
   );
 }
@@ -143,10 +145,10 @@ function MiniPlayer() {
   const now = useNow(1000);
   const resting = () => restRemaining() != null;
   return (
-    <div class="mx-auto max-w-xl px-2 pb-2">
-      <div class="anim-slide-up overflow-hidden rounded-2xl shadow-[0_6px_24px_rgb(0_0_0/0.14)] ring-[0.5px] ring-black/5">
+    <div class="pointer-events-auto relative mx-auto max-w-xl px-4 pb-2.5">
+      <div class="glass anim-slide-up overflow-hidden rounded-[1.75rem]">
         <SwipeRow
-          contentClass="bar"
+          contentClass="bg-transparent"
           actions={[
             {
               label: 'Discard',
@@ -158,7 +160,7 @@ function MiniPlayer() {
         >
           <button
             type="button"
-            class="relative flex w-full items-center gap-3 overflow-hidden py-2.5 pr-3 pl-4 text-left active:opacity-70"
+            class="relative flex w-full items-center gap-3 overflow-hidden py-2.5 pr-3 pl-5 text-left active:opacity-70"
             aria-label="Open workout"
             onClick={resume}
           >
@@ -205,11 +207,8 @@ function MiniPlayer() {
 export function UpdatePrompt() {
   return (
     <Show when={needRefresh()}>
-      <div
-        class="fixed inset-x-0 z-50 mx-auto max-w-md px-3"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 4.25rem)' }}
-      >
-        <div class="toast bar flex items-center gap-2 rounded-2xl py-2 pr-2 pl-4 shadow-[0_8px_30px_rgb(0_0_0/0.16)] ring-[0.5px] ring-black/5">
+      <div class="fixed inset-x-0 z-50 mx-auto max-w-md px-3" style={{ bottom: `calc(${BAR_GAP} + 4.75rem)` }}>
+        <div class="toast glass flex items-center gap-2 rounded-full py-2 pr-2 pl-5">
           <span class="t-sub flex-1 font-medium">A new version is ready.</span>
           <button type="button" class="btn btn-sm btn-plain text-label-2" onClick={dismissUpdate}>
             Later

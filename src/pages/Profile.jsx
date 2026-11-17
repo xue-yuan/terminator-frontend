@@ -39,6 +39,7 @@ import { BUILD, checkForUpdate } from '../lib/updates';
 import { wakeLockSupported } from '../lib/wakelock';
 import DataTransfer from '../components/DataTransfer';
 import { SwipeRow } from '../components/SwipeRow';
+import ThemePicker from '../components/ThemePicker';
 import { ConfirmSheet, PageHeader, Section, Segmented, Switch } from '../components/ui';
 
 /** What a queued change is, for the list of rejected ones. */
@@ -115,7 +116,7 @@ export default function Profile() {
       <PageHeader title="You" />
 
       <div class="card mt-2 flex items-center gap-3 px-4 py-3">
-        <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-[#ff9a3c] text-[22px] font-semibold text-white">
+        <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-[22px] font-semibold text-on-accent">
           {initials(user()?.full_name)}
         </span>
         <span class="min-w-0 flex-1">
@@ -310,6 +311,25 @@ export default function Profile() {
         <DataTransfer />
       </Section>
 
+      <Section
+        title="Appearance"
+        footer="Every theme comes in light and dark. Automatic follows your iPhone’s setting."
+      >
+        <ThemePicker />
+        <Choice label="Light or Dark">
+          <Segmented
+            label="Light or dark"
+            value={theme()}
+            options={[
+              ['system', 'Automatic'],
+              ['light', 'Light'],
+              ['dark', 'Dark'],
+            ]}
+            onChange={setTheme}
+          />
+        </Choice>
+      </Section>
+
       <Section title="App">
         <div class="row">
           <span class="flex-1">
@@ -325,18 +345,6 @@ export default function Profile() {
             disabled={!wakeLockSupported()}
           />
         </div>
-        <Choice label="Appearance">
-          <Segmented
-            label="Appearance"
-            value={theme()}
-            options={[
-              ['system', 'Automatic'],
-              ['light', 'Light'],
-              ['dark', 'Dark'],
-            ]}
-            onChange={setTheme}
-          />
-        </Choice>
         <div class="row">
           <div class="min-w-0 flex-1">
             <Show when={!isStandalone()} fallback={<p>Installed on this device</p>}>

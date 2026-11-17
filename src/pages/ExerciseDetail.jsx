@@ -15,7 +15,7 @@ import {
   muscleOf,
   saveExercise,
 } from '../lib/data';
-import { MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
+import { groupAfterRename, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
 import { formatClock, formatDay, formatLoad, formatNumber, formatWeight, plural } from '../lib/format';
 import { online } from '../lib/network';
 import { restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';
@@ -324,6 +324,11 @@ function EditSheet(props) {
   const [form, setForm] = createSignal({});
   const [busy, setBusy] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
+  // Renaming to a library name takes its muscle group, unless one was picked
+  // by hand here; fromLibrary is that library name, for the note under the chips.
+  let original = { name: '', group: null };
+  const [picked, setPicked] = createSignal(false);
+  const [fromLibrary, setFromLibrary] = createSignal(null);
   // Fill the form only when the sheet opens: later refreshes of the exercise
   // (which saving itself triggers) must not overwrite what is being typed.
   createEffect(
@@ -332,6 +337,9 @@ function EditSheet(props) {
       (open) => {
         if (!open) return;
         const e = untrack(() => props.exercise);
+        original = { name: e.name, group: muscleOf(e) };
+        setPicked(false);
+        setFromLibrary(null);
         setForm({
           name: e.name,
           muscle_group: muscleOf(e),
@@ -345,6 +353,18 @@ function EditSheet(props) {
     ),
   );
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  function rename(name) {
+    const entry = catalogEntry(name);
+    const libraryGroup = entry?.muscle_group ?? undefined;
+    const group = groupAfterRename({ name, original, current: form().muscle_group, picked: picked(), libraryGroup });
+    setForm((f) => ({ ...f, name, muscle_group: group }));
+    setFromLibrary(!picked() && libraryGroup && group === libraryGroup && group !== original.group ? entry.name : null);
+  }
+  function pickGroup(key) {
+    setPicked(true);
+    setFromLibrary(null);
+    set('muscle_group', form().muscle_group === key ? null : key);
+  }
   const field = (key) => form()[key] ?? '';
   const unit = () => props.exercise.last_unit ?? defaultUnit();
   /** Another exercise with the typed name: saving merges into it. */
@@ -426,7 +446,7 @@ function EditSheet(props) {
             <ExerciseNameInput
               class="field-inline w-full"
               value={field('name')}
-              onInput={(v) => set('name', v)}
+              onInput={rename}
               suggestions={exerciseOptions()}
               label="Name"
               placeholder="Name"
@@ -449,13 +469,19 @@ function EditSheet(props) {
                   role="radio"
                   aria-checked={form().muscle_group === key}
                   class={chip(form().muscle_group === key)}
-                  onClick={() => set('muscle_group', form().muscle_group === key ? null : key)}
+                  onClick={() => pickGroup(key)}
                 >
                   {label}
                 </button>
               )}
             </For>
           </div>
+          <Show when={fromLibrary()}>
+            <p class="group-footer">
+              {muscleLabel(form().muscle_group)}, as “{fromLibrary()}” is filed in the library. Tap another to change
+              it.
+            </p>
+          </Show>
 
           <p class="group-header">Progression</p>
           <div class="group">
