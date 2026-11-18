@@ -377,3 +377,49 @@ describe('discarding', () => {
     expect(s.draft().exercises).toHaveLength(0);
   });
 });
+
+describe('editing a logged workout', () => {
+  const logged = {
+    id: 'w1',
+    name: 'Push',
+    notes: '',
+    performed_at: '2026-11-17T10:00:00Z',
+    duration_seconds: 3000,
+    items: [
+      {
+        exercise_name: 'Bench Press',
+        weight_unit: 'kg',
+        superset: 0,
+        sets: [{ weight: 80, reps: 8, kind: 'working' }],
+      },
+      { exercise_name: 'Dip', weight_unit: 'kg', superset: 0, sets: [{ weight: 0, reps: 12, kind: 'working' }] },
+    ],
+  };
+  beforeEach(() => {
+    s.discardDraft();
+    s.editWorkout(logged);
+  });
+
+  it('knows when nothing was changed', () => {
+    s.focusSet(0, 0); // looking around isn't a change
+    expect(s.draftChanged()).toBe(false);
+  });
+
+  it('notices a changed number, name or extra set', () => {
+    type(0, 0, 'reps', '9');
+    expect(s.draftChanged()).toBe(true);
+    type(0, 0, 'reps', '8');
+    expect(s.draftChanged()).toBe(false); // changed back
+    s.updateDraft('name', 'Push A');
+    expect(s.draftChanged()).toBe(true);
+    s.updateDraft('name', 'Push');
+    s.addSet(1);
+    expect(s.draftChanged()).toBe(true);
+  });
+
+  it('treats a new workout as worth keeping', () => {
+    s.discardDraft();
+    s.startWorkout();
+    expect(s.draftChanged()).toBe(true);
+  });
+});

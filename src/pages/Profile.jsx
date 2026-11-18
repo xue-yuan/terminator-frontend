@@ -18,9 +18,11 @@ import { formatDay, formatWeight, plural, timeAgo } from '../lib/format';
 import { canPromptInstall, isIOS, isStandalone, promptInstall } from '../lib/install';
 import { online } from '../lib/network';
 import {
+  celebrate,
   keepAwake,
   restSeconds,
   restSound,
+  setCelebrate,
   setKeepAwake,
   setRestSeconds,
   setRestSound,
@@ -220,6 +222,13 @@ export default function Profile() {
             </span>
           </span>
           <Switch label="Sound when rest is over" checked={restSound()} onChange={setRestSound} />
+        </div>
+        <div class="row">
+          <span class="flex-1">
+            Celebrate finished workouts
+            <span class="t-foot block text-label-2">Confetti and a short fanfare. Silent mode mutes the sound.</span>
+          </span>
+          <Switch label="Celebrate finished workouts" checked={celebrate()} onChange={setCelebrate} />
         </div>
         <Choice label="Default unit" hint="New exercises and totals">
           <Segmented

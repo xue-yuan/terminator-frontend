@@ -25,3 +25,5 @@ export const [weightStepLb, setWeightStepLb] = pref('weightStepLb', 5);
 export const weightStep = (u) => (u === 'lb' ? weightStepLb() : weightStepKg());
 /** A short chime when rest is over (iPhones can't vibrate from a web page). */
 export const [restSound, setRestSound] = pref('restSound', true);
+/** Confetti and a short fanfare when a workout is finished. */
+export const [celebrate, setCelebrate] = pref('celebrate', true);

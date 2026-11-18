@@ -97,18 +97,24 @@ export default function Home() {
 
 function InProgress(props) {
   const now = useNow();
+  const editing = () => draft().mode === 'edit';
   return (
     <>
       <SectionTitle>In Progress</SectionTitle>
       <div class="card p-4">
         <p class="t-foot flex items-center gap-1.5 font-semibold text-accent">
-          <span class="h-2 w-2 animate-pulse rounded-full bg-accent" />
-          {draft().mode === 'edit' ? 'Editing' : 'Live'}
+          <Show when={!editing()}>
+            <span class="h-2 w-2 animate-pulse rounded-full bg-accent" />
+          </Show>
+          {editing() ? 'Editing' : 'Live'}
         </p>
         <p class="t-title2 mt-0.5 truncate">{draft().name || 'Workout'}</p>
         <p class="t-sub text-label-2">
-          <span class="num">{(now(), formatClock(elapsedSeconds()))}</span> · {plural(completedSetCount(), 'set')}{' '}
-          logged
+          {/* An edit of a logged workout has no clock running. */}
+          <Show when={!editing()}>
+            <span class="num">{(now(), formatClock(elapsedSeconds()))}</span> ·{' '}
+          </Show>
+          {plural(completedSetCount(), 'set')} logged
         </p>
         <button type="button" class="btn btn-lg btn-primary btn-block mt-3" onClick={() => props.onResume()}>
           Resume

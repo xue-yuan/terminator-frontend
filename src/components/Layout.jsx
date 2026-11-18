@@ -142,6 +142,7 @@ function MiniPlayer() {
   // Swipe it left to throw the workout away (with Undo), like a notification.
   const now = useNow(1000);
   const resting = () => restRemaining() != null;
+  const editing = () => draft().mode === 'edit';
   return (
     <div class="pointer-events-auto relative mx-auto max-w-xl px-4 pb-2.5">
       <div class="glass anim-slide-up overflow-hidden rounded-[1.75rem]">
@@ -164,11 +165,17 @@ function MiniPlayer() {
           >
             <span class="min-w-0 flex-1">
               <span class="flex items-center gap-1.5 truncate text-[15px] font-semibold">
-                <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+                <Show when={!editing()}>
+                  <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+                </Show>
                 <span class="truncate">{draft().name || 'Workout'}</span>
               </span>
               <span class="t-foot block truncate text-label-2">
-                <span class="num">{(now(), formatClock(elapsedSeconds()))}</span> · {plural(completedSetCount(), 'set')}
+                {/* An edit of a logged workout has no clock running. */}
+                <Show when={!editing()} fallback="Editing">
+                  <span class="num">{(now(), formatClock(elapsedSeconds()))}</span>
+                </Show>{' '}
+                · {plural(completedSetCount(), 'set')}
               </span>
             </span>
             <Show when={resting()} fallback={<ChevronUp size={22} class="shrink-0 text-label-3" />}>

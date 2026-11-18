@@ -24,6 +24,11 @@ export const formatNumber = (n) => numberFmt.format(Math.round(n));
 /** "1 workout", "3 workouts". */
 export const plural = (n, word, many = `${word}s`) => `${n} ${Number(n) === 1 ? word : many}`;
 
+const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
+const ORDINAL_SUFFIX = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
+/** 1st, 2nd, 3rd, 4th, 11th, 21st... */
+export const ordinal = (n) => `${n}${ORDINAL_SUFFIX[ordinalRules.select(n)]}`;
+
 export function formatWeight(w) {
   return Number.isInteger(w) ? String(w) : String(Math.round(w * 100) / 100);
 }

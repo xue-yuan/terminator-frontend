@@ -270,20 +270,42 @@ export function editWorkout(workout) {
     sets: item.sets.map((s) => ({ ...newSet({ ...s, done: true }), pr: s.pr ?? [] })),
   }));
   normalizeGroups(exercises);
+  const fields = { name: workout.name ?? '', notes: workout.notes ?? '', startedAt: workout.performed_at, exercises };
   setDraft({
+    ...fields,
     id: workout.id,
     mode: 'edit',
-    name: workout.name ?? '',
-    notes: workout.notes ?? '',
+    baseline: fingerprint(fields), // what Cancel compares against
     planDayId: workout.plan_day_id ?? null,
-    startedAt: workout.performed_at,
     timeEdited: false,
     duration: workout.duration_seconds ?? null,
     restEndsAt: null,
     restTotal: 0,
     focus: { ex: 0, set: -1 }, // review mode: everything is logged already
-    exercises,
   });
+}
+
+/** What an edit can change, as a string to compare (not focus, rest or other UI state). */
+function fingerprint(d) {
+  return JSON.stringify([
+    d.name,
+    d.notes,
+    d.startedAt,
+    d.exercises.map((ex) => [
+      ex.name,
+      ex.unit,
+      ex.group,
+      ex.sets.map((s) => [s.kind, String(s.weight ?? ''), String(s.reps ?? ''), String(s.rpe ?? ''), !!s.done]),
+    ]),
+  ]);
+}
+
+/** An edit changed something since it was opened (a draft saved before baselines existed counts as changed). */
+export function draftChanged() {
+  const d = state.draft;
+  if (!d) return false;
+  if (d.mode !== 'edit') return true;
+  return d.baseline == null || d.baseline !== fingerprint(d);
 }
 
 /** Throw the draft away. Returns a plain copy of it, for Undo (restoreDraft). */

@@ -4,6 +4,7 @@ import {
   describeTarget,
   formatClock,
   formatDuration,
+  ordinal,
   plural,
   setCount,
   setLabel,
@@ -36,6 +37,22 @@ describe('formatting', () => {
     expect(formatDuration(3720)).toBe('1h 02m');
     expect(formatDuration(20)).toBe('1 min');
     expect(formatClock(3725)).toBe('1:02:05');
+  });
+
+  it('writes ordinals', () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 112].map(ordinal)).toEqual([
+      '1st',
+      '2nd',
+      '3rd',
+      '4th',
+      '11th',
+      '12th',
+      '13th',
+      '21st',
+      '22nd',
+      '101st',
+      '112th',
+    ]);
   });
 
   it('shows the unit only when something was weighted', () => {

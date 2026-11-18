@@ -31,24 +31,38 @@ export function primeSound() {
   }
 }
 
-/** Two soft rising notes. Returns false if audio isn't ready. */
-export function chime() {
+/** Soft sine notes: [frequency, start (s), length (s), peak gain]. Returns false if audio isn't ready. */
+function play(notes) {
   if (!ctx || ctx.state !== 'running') return false;
   const start = ctx.currentTime + 0.02;
-  for (const [frequency, at] of [
-    [880, 0],
-    [1318.5, 0.16],
-  ]) {
+  for (const [frequency, at, length, peak] of notes) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
     osc.frequency.value = frequency;
     gain.gain.setValueAtTime(0.0001, start + at);
-    gain.gain.exponentialRampToValueAtTime(0.4, start + at + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + at + 0.45);
+    gain.gain.exponentialRampToValueAtTime(peak, start + at + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + at + length);
     osc.connect(gain).connect(ctx.destination);
     osc.start(start + at);
-    osc.stop(start + at + 0.5);
+    osc.stop(start + at + length + 0.05);
   }
   return true;
 }
+
+/** Two soft rising notes. Returns false if audio isn't ready. */
+export const chime = () =>
+  play([
+    [880, 0, 0.45, 0.4],
+    [1318.5, 0.16, 0.45, 0.4],
+  ]);
+
+/** A workout finished: a quick rising C major arpeggio that rings out on top. */
+export const fanfare = () =>
+  play([
+    [523.25, 0, 0.3, 0.22],
+    [659.25, 0.09, 0.3, 0.22],
+    [783.99, 0.18, 0.3, 0.24],
+    [1046.5, 0.29, 0.9, 0.3],
+    [1318.5, 0.29, 0.9, 0.12],
+  ]);

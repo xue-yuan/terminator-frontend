@@ -1,6 +1,6 @@
-import { createResource, createSignal, For, Show } from 'solid-js';
+import { createResource, createSignal, For, onCleanup, Show } from 'solid-js';
 import { A, useNavigate, useParams } from '@solidjs/router';
-import { ChevronRight, Repeat, SearchX, Trash2, TriangleAlert, Trophy } from 'lucide-solid';
+import { ChevronRight, PartyPopper, Repeat, SearchX, Trash2, TriangleAlert, Trophy } from 'lucide-solid';
 import { api } from '../lib/api';
 import { deleteWorkout, itemExerciseId, saveWorkout, workoutList } from '../lib/data';
 import {
@@ -10,6 +10,7 @@ import {
   formatNumber,
   formatTime,
   isWarmup,
+  ordinal,
   plural,
   setCount,
   setLabel,
@@ -24,8 +25,40 @@ import { toast, undoable } from '../lib/toast';
 import { useStart } from '../components/StartSheet';
 import { ConfirmSheet, EmptyState, PageHeader, PrTag, Spinner, StatRow } from '../components/ui';
 import { useBack } from '../lib/nav';
+import { countUp, takeCelebration } from '../lib/celebrate';
+import { totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
 
 const prCount = (w) => w.items.reduce((n, item) => n + item.sets.filter((s) => s.pr?.length).length, 0);
+
+/** Right after Finish & Save (lib/celebrate.js): what the workout adds up to, with a badge popping in. */
+function Celebration(props) {
+  const records = () => prCount(props.workout);
+  const facts = () => {
+    const out = [];
+    const total = totalWorkouts();
+    if (total) out.push(total === 1 ? 'Your first workout' : `Your ${ordinal(total)} workout`);
+    const streak = weekStreak();
+    const week = workoutsThisWeek();
+    if (streak >= 2) out.push(`${streak}-week streak`);
+    else if (week >= 2) out.push(`${week} this week`);
+    return out.join(' · ');
+  };
+  return (
+    <div class="card celebrate mt-3 px-5 pt-7 pb-5 text-center" role="status">
+      <div class="celebrate-badge mx-auto grid size-[76px] place-items-center rounded-full text-on-accent">
+        <Show when={records()} fallback={<PartyPopper size={36} strokeWidth={2} />}>
+          <Trophy size={36} strokeWidth={2} />
+        </Show>
+      </div>
+      <h2 class="t-title2 celebrate-rise mt-4">Workout Complete</h2>
+      <Show when={facts()}>
+        <p class="t-sub celebrate-rise mt-1 text-label-2" style={{ 'animation-delay': '560ms' }}>
+          {facts()}
+        </p>
+      </Show>
+    </div>
+  );
+}
 
 export default function WorkoutDetail() {
   const params = useParams();
@@ -33,6 +66,11 @@ export default function WorkoutDetail() {
   const back = useBack();
   const { resume } = useStart();
   const [confirmDelete, setConfirmDelete] = createSignal(false);
+  // Just finished: the card above the stats, and the stats counting up from 0.
+  const fresh = takeCelebration(params.id);
+  const [grown, setGrown] = createSignal(1);
+  if (fresh) onCleanup(countUp(setGrown, { delay: 420, duration: 1100 }));
+  const grow = (n) => (fresh && n != null ? n * grown() : n);
 
   const local = () => workoutList().find((w) => w.id === params.id);
   // Deep link to something outside the cached recent list: fetch it.
@@ -100,18 +138,26 @@ export default function WorkoutDetail() {
           </p>
         </Show>
 
+        <Show when={fresh}>
+          <Celebration workout={w()} />
+        </Show>
+
         <div class="mt-3">
           <StatRow
             stats={[
-              { label: 'Time', value: formatDuration(w().duration_seconds) },
-              { label: 'Sets', value: setCount(w()) },
-              { label: 'Volume', value: formatNumber(volume(w(), unit())), unit: unit() },
+              { label: 'Time', value: formatDuration(grow(w().duration_seconds)) },
+              { label: 'Sets', value: Math.round(grow(setCount(w()))) },
+              { label: 'Volume', value: formatNumber(grow(volume(w(), unit()))), unit: unit() },
             ]}
           />
         </div>
 
         <Show when={prCount(w())}>
-          <p class="mt-3 flex items-center gap-2.5 rounded-xl bg-accent-soft px-4 py-3 font-semibold text-accent">
+          <p
+            class="mt-3 flex items-center gap-2.5 rounded-xl bg-accent-soft px-4 py-3 font-semibold text-accent"
+            classList={{ 'celebrate-rise': fresh }}
+            style={fresh ? { 'animation-delay': '900ms' } : undefined}
+          >
             <Trophy size={18} /> {plural(prCount(w()), 'new PR', 'new PRs')}
           </p>
         </Show>

@@ -35,8 +35,9 @@ import {
 import { enter, riseIn, slideAway } from '../lib/motion';
 import { useBack } from '../lib/nav';
 import { useNow } from '../lib/now';
-import { unit as displayUnit, keepAwake, restSound } from '../lib/prefs';
+import { celebrate, unit as displayUnit, keepAwake, restSound } from '../lib/prefs';
 import { primeSound } from '../lib/sound';
+import { celebrateFinish, prepareCelebration } from '../lib/celebrate';
 import { restProgress, restRemaining } from '../lib/rest';
 import { convert, UNITS } from '../lib/units';
 import {
@@ -49,7 +50,9 @@ import {
   applyHistoryHints,
   closeEditor,
   completedSetCount,
+  discardDraft,
   draft,
+  draftChanged,
   draftRecords,
   draftLabels as labels,
   effectiveValue,
@@ -184,28 +187,42 @@ export default function Session() {
     slideAway({ dragged });
     go();
   };
-  const minimize = (dragged) => leave(() => back('/'), dragged);
+  // Editing a logged workout isn't left running in the background: Cancel (or a
+  // pull down) closes it. Untouched, it just closes; changed, it goes with Undo.
+  const cancelEdit = (dragged) => {
+    const id = draft().id;
+    const changed = draftChanged();
+    setSheet(null);
+    leave(() => {
+      if (changed) discardWorkout();
+      else discardDraft();
+      back(`/workouts/${id}`);
+    }, dragged);
+  };
+  const minimize = (dragged) => (draft().mode === 'edit' ? cancelEdit(dragged) : leave(() => back('/'), dragged));
   // Pull it down with the thumb, from anywhere once scrolled to the top (or by
   // the header at any time), instead of reaching for the button up in the corner.
   const pullDown = createPullDown(() => [root, dock], minimize);
 
   const finish = () => {
     const wasEdit = draft().mode === 'edit';
+    if (!wasEdit) prepareCelebration(); // still inside the tap: lets the fanfare play
+    const records = draftRecords().length;
     const { workout, error } = finishWorkout();
     if (error) return toast(error, 'error');
     setSheet(null);
-    toast(wasEdit ? 'Changes saved' : 'Workout saved', 'success');
+    // A new workout gets confetti and a "Workout Complete" card instead of a toast.
+    if (wasEdit || !celebrate()) toast(wasEdit ? 'Changes saved' : 'Workout saved', 'success');
+    else celebrateFinish(workout.id, { records });
     leave(() => navigate(`/workouts/${workout.id}`, { replace: true }));
   };
 
   // No confirmation: it goes right away, with Undo in the toast.
   const discard = () => {
-    const wasEdit = draft().mode === 'edit';
-    const id = draft().id;
     setSheet(null);
     leave(() => {
       discardWorkout();
-      navigate(wasEdit ? `/workouts/${id}` : '/', { replace: true });
+      navigate('/', { replace: true });
     });
   };
 
@@ -234,11 +251,14 @@ export default function Session() {
           />
         </Show>
 
-        <div class="group mt-10">
-          <button type="button" class="row row-tap justify-center text-bad" onClick={discard}>
-            {draft().mode === 'edit' ? 'Discard Changes' : 'Discard Workout'}
-          </button>
-        </div>
+        {/* An edit is thrown away with Cancel, up in the corner. */}
+        <Show when={draft().mode === 'new'}>
+          <div class="group mt-10">
+            <button type="button" class="row row-tap justify-center text-bad" onClick={discard}>
+              Discard Workout
+            </button>
+          </div>
+        </Show>
 
         <div classList={{ 'h-32': !spotifyStatus().connected, 'h-48': spotifyStatus().connected }} />
       </div>
@@ -285,14 +305,23 @@ function SessionHeader(props) {
       <div class="grabber mb-[3px]" aria-hidden="true" />
       <div class="flex h-12 items-center gap-2">
         <div class="flex w-20 shrink-0">
-          <button
-            type="button"
-            class="btn btn-icon -ml-2 text-accent"
-            aria-label="Minimize workout"
-            onClick={() => props.onMinimize()}
+          <Show
+            when={draft().mode === 'new'}
+            fallback={
+              <button type="button" class="btn btn-plain -ml-2 h-11 px-2" onClick={() => props.onMinimize()}>
+                Cancel
+              </button>
+            }
           >
-            <ChevronDown size={30} strokeWidth={2.25} />
-          </button>
+            <button
+              type="button"
+              class="btn btn-icon -ml-2 text-accent"
+              aria-label="Minimize workout"
+              onClick={() => props.onMinimize()}
+            >
+              <ChevronDown size={30} strokeWidth={2.25} />
+            </button>
+          </Show>
         </div>
         <button
           type="button"
@@ -1028,9 +1057,11 @@ function DetailsSheet(props) {
           onInput={(e) => updateDraft('notes', e.currentTarget.value)}
         />
       </div>
-      <button type="button" class="btn btn-lg btn-block mt-6 bg-card text-bad" onClick={() => props.onDiscard()}>
-        {draft().mode === 'edit' ? 'Discard Changes' : 'Discard Workout'}
-      </button>
+      <Show when={draft().mode === 'new'}>
+        <button type="button" class="btn btn-lg btn-block mt-6 bg-card text-bad" onClick={() => props.onDiscard()}>
+          Discard Workout
+        </button>
+      </Show>
     </Sheet>
   );
 }
