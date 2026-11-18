@@ -14,6 +14,7 @@ export const THEMES = [
   ['rose', 'Rose'],
   ['graphite', 'Graphite'],
   ['sand', 'Sand'],
+  ['milktea', 'Milk Tea'],
   ['midnight', 'Midnight'],
 ];
 const known = (id) => THEMES.some(([key]) => key === id);

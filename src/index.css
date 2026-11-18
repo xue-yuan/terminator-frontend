@@ -426,6 +426,61 @@
   --on-heat-4: #ffffff;
 }
 
+/* Milk Tea, light */
+[data-palette='milktea'] {
+  --bg: #f4e7dd;
+  --card: #fffaf5;
+  --elevated: #fffaf5;
+  --fill: rgb(132 98 72 / 0.12);
+  --fill-2: rgb(132 98 72 / 0.2);
+  --label: #2b1e19;
+  --label-2: #7a6457;
+  --label-3: #baa799;
+  --separator: #ddcabb;
+  --bar: rgb(251 241 234 / 0.82);
+  --accent: #8f5a39;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(143 90 57 / 0.13);
+  --accent-2: #a47a48;
+  --chart-line: #8f5a39;
+  --heat-1: #d2aa83;
+  --heat-2: #ba936d;
+  --heat-3: #a27c57;
+  --heat-4: #8b6641;
+  --on-heat-1: #000000;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
+/* Milk Tea, dark */
+[data-theme='dark'][data-palette='milktea'],
+[data-theme='dark'] [data-palette='milktea'] {
+  --bg: #130d0a;
+  --card: #241c17;
+  --elevated: #332923;
+  --fill: rgb(150 116 90 / 0.24);
+  --fill-2: rgb(150 116 90 / 0.36);
+  --label: #f5ede5;
+  --label-2: #ad9a8c;
+  --label-3: #6f6055;
+  --separator: #3e332c;
+  --bar: rgb(30 22 18 / 0.8);
+  --accent: #d9a579;
+  --on-accent: #000000;
+  --accent-soft: rgb(217 165 121 / 0.2);
+  --accent-2: #ecc88e;
+  --chart-line: #e3ae82;
+  --heat-1: #6b4924;
+  --heat-2: #85613c;
+  --heat-3: #9f7954;
+  --heat-4: #ba936d;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+}
+
 /* Midnight, light */
 [data-palette='midnight'] {
   --bg: #edf1f7;
