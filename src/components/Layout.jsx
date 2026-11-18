@@ -1,11 +1,11 @@
 import { createEffect, For, on, onCleanup, onMount, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { A, useLocation } from '@solidjs/router';
+import { A, useLocation, useNavigate } from '@solidjs/router';
 import { ChevronUp, CircleUser, ClipboardList, History, House, Plus, Trash2 } from 'lucide-solid';
 import { firstLoad } from '../lib/data';
 import { formatClock, plural } from '../lib/format';
 import { pageIn, slideAwayRight } from '../lib/motion';
-import { backTarget, isTabRoot, markStart, useArrivals, useBack } from '../lib/nav';
+import { backTarget, isTabRoot, markStart, provideNavigate, useArrivals, useBack } from '../lib/nav';
 import { useNow } from '../lib/now';
 import { restProgress, restRemaining } from '../lib/rest';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
@@ -17,6 +17,7 @@ const FULLSCREEN = /^\/(session|plans\/new|plans\/\d+\/edit)\/?$/;
 
 export default function AppLayout(props) {
   const location = useLocation();
+  provideNavigate(useNavigate());
   const fullscreen = () => FULLSCREEN.test(location.pathname);
   let main;
   const back = useBack();
@@ -82,7 +83,7 @@ const TABS = [
   { href: '/', label: 'Today', icon: House, match: /^\/(muscles\/?)?$/ },
   { href: '/history', label: 'Log', icon: History, match: /^\/(history|calendar|exercises|workouts)(\/|$)/ },
   { href: '/plans', label: 'Plans', icon: ClipboardList, match: /^\/plans(\/|$)/ },
-  { href: '/profile', label: 'You', icon: CircleUser, match: /^\/(profile|body|admin)(\/|$)/ },
+  { href: '/profile', label: 'You', icon: CircleUser, match: /^\/(profile|body|admin|achievements)(\/|$)/ },
 ];
 
 function Tab(props) {

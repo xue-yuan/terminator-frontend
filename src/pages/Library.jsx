@@ -6,6 +6,7 @@ import { matchesQuery, MUSCLE_GROUPS } from '../lib/exercises';
 import { plural } from '../lib/format';
 import { online } from '../lib/network';
 import { toast } from '../lib/toast';
+import MusclePicker from '../components/MusclePicker';
 import { SwipeRow } from '../components/SwipeRow';
 import { ConfirmSheet, EmptyState, PageHeader, Section, Sheet, Spinner } from '../components/ui';
 
@@ -257,8 +258,6 @@ function EntrySheet(props) {
     }
   }
 
-  const chip = (selected) =>
-    `h-8 rounded-full px-3.5 text-[14px] font-medium transition-colors ${selected ? 'bg-accent text-on-accent' : 'bg-fill text-label'}`;
   const field = (key, label, placeholder, attrs = {}) => (
     <label class="row">
       <span class="w-28 shrink-0">{label}</span>
@@ -292,22 +291,7 @@ function EntrySheet(props) {
         </p>
 
         <p class="group-header">Muscle group</p>
-        <div class="flex flex-wrap gap-1.5 px-1" role="radiogroup" aria-label="Muscle group">
-          <For each={MUSCLE_GROUPS}>
-            {([key, label, zh]) => (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={form().muscle_group === key}
-                class={chip(form().muscle_group === key)}
-                disabled={busy()}
-                onClick={() => set('muscle_group', key)}
-              >
-                {label} {zh}
-              </button>
-            )}
-          </For>
-        </div>
+        <MusclePicker value={form().muscle_group} onPick={(key) => set('muscle_group', key)} withZh disabled={busy()} />
 
         <button type="submit" class="btn btn-lg btn-primary btn-block mt-6" aria-busy={busy()} disabled={busy()}>
           {isNew() ? 'Add to Library' : 'Save'}

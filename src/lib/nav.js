@@ -107,3 +107,9 @@ export function useBackTarget(target) {
     onCleanup(() => setBackTarget((current) => (current === path ? null : current)));
   });
 }
+
+// For what lives outside the pages (a toast's button): go somewhere in the app.
+let appNavigate = null;
+/** Called once by the app layout, with its router's navigate. */
+export const provideNavigate = (navigate) => (appNavigate = navigate);
+export const goTo = (path) => appNavigate?.(path);

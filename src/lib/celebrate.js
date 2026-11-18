@@ -1,13 +1,20 @@
 // A finished workout gets a moment: confetti from both bottom corners, a short
-// fanfare, and (WorkoutDetail) a "Workout Complete" card whose numbers count up.
+// fanfare, and (WorkoutDetail) a "Workout Complete" card whose numbers count up,
+// with the XP it earned and, once the server has it, the titles it unlocked.
 // Only right after Finish & Save, never when an edit is saved or the page is
 // opened again later.
 
+import { createSignal } from 'solid-js';
 import { celebrate as enabled } from './prefs';
 import { reducedMotion } from './motion';
 import { fanfare, primeSound } from './sound';
 
 let pending = null;
+
+// The workout whose card is on screen, and the titles that arrived for it.
+const [showing, setShowing] = createSignal(null);
+const [freshUnlocks, setFreshUnlocks] = createSignal([]);
+export { freshUnlocks, showing as celebrating };
 
 /** Call from the Finish tap (audio may only start from a tap). */
 export function prepareCelebration() {
@@ -16,23 +23,35 @@ export function prepareCelebration() {
 
 /**
  * The workout was just saved; its page opens next. `records`: how many PRs it
- * set (more confetti). `delay`: ms until the workout has slid out of the way.
+ * set; `xp`: { before, gained, levelUp } (null before achievements ever loaded).
+ * `delay`: ms until the workout has slid out of the way.
  */
-export function celebrateFinish(workoutId, { records = 0, delay = 280 } = {}) {
+export function celebrateFinish(workoutId, { records = 0, xp = null, delay = 280 } = {}) {
   if (!enabled()) return;
-  pending = workoutId;
+  pending = { id: workoutId, xp };
+  setFreshUnlocks([]);
   setTimeout(() => {
     fanfare();
     navigator.vibrate?.([12, 60, 18]); // Android; iPhones can't vibrate from a web page
-    confetti({ volleys: records ? 2 : 1 });
+    confetti({ volleys: records || xp?.levelUp ? 2 : 1 });
   }, delay);
 }
 
-/** Whether this workout's page should celebrate; true once, then it's spent. */
+/** This workout's celebration ({ xp }), once, if it was just finished; otherwise null. */
 export function takeCelebration(workoutId) {
-  if (pending !== workoutId) return false;
+  if (pending?.id !== workoutId) return null;
+  const taken = pending;
   pending = null;
-  return true;
+  return taken;
+}
+
+/** The card is on screen (WorkoutDetail), or gone (null). */
+export const showCelebration = (workoutId) => setShowing(workoutId);
+
+/** Titles the server just confirmed for the workout on screen: onto its card, with a little more confetti. */
+export function addFreshUnlocks(list) {
+  setFreshUnlocks((current) => [...current, ...list]);
+  confetti({ volleys: 1 });
 }
 
 // ---- confetti -----------------------------------------------------------------

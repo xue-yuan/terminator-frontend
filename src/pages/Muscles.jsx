@@ -1,7 +1,7 @@
 import { createMemo, For, Show } from 'solid-js';
 import { heatLegend, heatLevel, heatStep, heatThresholds } from '../lib/calendar';
 import { plural } from '../lib/format';
-import { groupsToShow } from '../lib/muscles';
+import { regionsWithMuscles } from '../lib/muscles';
 import { muscleWeeks } from '../lib/stats';
 import { HeatLegend } from '../components/Heat';
 import { PageHeader } from '../components/ui';
@@ -10,11 +10,15 @@ const WEEKS = 8;
 const monthFmt = new Intl.DateTimeFormat('en-GB', { month: 'short' });
 const weekFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
 
-/** Working sets per muscle group, week by week: a table shaded like a heatmap. */
+/**
+ * Working sets per muscle group, week by week: a table shaded like a heatmap,
+ * the groups under their body part (with its total when it has several).
+ */
 export default function Muscles() {
   const weeks = createMemo(() => muscleWeeks(WEEKS));
-  const groups = createMemo(() => groupsToShow(weeks()));
-  const values = createMemo(() => weeks().flatMap((w) => groups().map(([key]) => w.sets[key] ?? 0)));
+  const parts = createMemo(() => regionsWithMuscles(weeks()));
+  const muscles = () => parts().flatMap((p) => p.muscles);
+  const values = createMemo(() => weeks().flatMap((w) => muscles().map(([key]) => w.sets[key] ?? 0)));
   const thresholds = createMemo(() => heatThresholds(values()));
   const shade = (n) => (n ? `heat-${heatStep(heatLevel(n, thresholds()), thresholds())}` : 'bg-fill text-label-3');
   const isThisWeek = (i) => i === weeks().length - 1;
@@ -27,7 +31,7 @@ export default function Muscles() {
       <div class="card mt-4 px-2 pt-2 pb-3">
         <table class="w-full table-fixed border-separate border-spacing-[3px]">
           <colgroup>
-            <col class="w-[4.75rem]" />
+            <col class="w-[5.75rem]" />
             <For each={weeks()}>{() => <col />}</For>
           </colgroup>
           <thead>
@@ -49,30 +53,59 @@ export default function Muscles() {
             </tr>
           </thead>
           <tbody>
-            <For each={groups()}>
-              {([key, label]) => (
-                <tr>
-                  <th scope="row" class="t-foot truncate pr-1 text-left font-normal">
-                    {label}
-                  </th>
-                  <For each={weeks()}>
-                    {(w, i) => {
-                      const n = () => w.sets[key] ?? 0;
-                      return (
-                        <td class="p-0">
-                          <div
-                            class={`num flex h-8 items-center justify-center rounded-md text-[13px] font-semibold ${shade(n())}`}
-                            aria-label={`${label}, ${weekName(w, i())}: ${plural(n(), 'set')}`}
+            <For each={parts()}>
+              {(part) => (
+                <>
+                  {/* A body part of several groups: its total, then each group a little indented. */}
+                  <Show when={part.muscles.length > 1}>
+                    <tr>
+                      <th scope="row" class="t-foot truncate pt-1.5 pr-1 text-left font-semibold">
+                        {part.label}
+                      </th>
+                      <For each={weeks()}>
+                        {(w, i) => (
+                          <td
+                            class="num pt-1.5 text-center text-[13px] font-semibold text-label-2"
+                            aria-label={`${part.label}, ${weekName(w, i())}: ${plural(w.regions[part.key] ?? 0, 'set')}`}
                           >
-                            {n() || '–'}
-                          </div>
-                        </td>
-                      );
-                    }}
+                            {w.regions[part.key] || '–'}
+                          </td>
+                        )}
+                      </For>
+                    </tr>
+                  </Show>
+                  <For each={part.muscles}>
+                    {([key, label]) => (
+                      <tr>
+                        <th
+                          scope="row"
+                          class="t-foot truncate pr-1 text-left font-normal"
+                          classList={{ 'pl-2.5 text-label-2': part.muscles.length > 1 }}
+                        >
+                          {label}
+                        </th>
+                        <For each={weeks()}>
+                          {(w, i) => {
+                            const n = () => w.sets[key] ?? 0;
+                            return (
+                              <td class="p-0">
+                                <div
+                                  class={`num flex h-8 items-center justify-center rounded-md text-[13px] font-semibold ${shade(n())}`}
+                                  aria-label={`${label}, ${weekName(w, i())}: ${plural(n(), 'set')}`}
+                                >
+                                  {n() || '–'}
+                                </div>
+                              </td>
+                            );
+                          }}
+                        </For>
+                      </tr>
+                    )}
                   </For>
-                </tr>
+                </>
               )}
             </For>
+
             <tr>
               <th scope="row" class="t-foot pt-1 text-left font-semibold">
                 Total
@@ -92,8 +125,9 @@ export default function Muscles() {
         </div>
       </div>
       <p class="group-footer">
-        Weeks run Monday to Sunday; the orange date is this week. Warm-ups don’t count. An exercise counts toward the
-        muscle group set on it (or the library’s), which you can change on its page.
+        Weeks run Monday to Sunday; the orange date is this week. Warm-ups don’t count. Each body part adds up its
+        groups. An exercise counts toward the muscle group set on it (or the library’s), which you can change on its
+        page.
         <Show when={weeks().length < WEEKS}> Older weeks aren’t kept on this device.</Show>
       </p>
     </>

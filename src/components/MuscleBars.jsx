@@ -1,19 +1,19 @@
 import { For, onMount, Show } from 'solid-js';
 import { plural } from '../lib/format';
 import { growIn } from '../lib/motion';
-import { groupsToShow } from '../lib/muscles';
+import { regionsToShow } from '../lib/muscles';
 
 /**
- * This week's working sets per muscle group as bars, each with a mark at last
- * week's number. `weeks` ends with this week (see muscleWeeks in lib/stats.js).
+ * This week's working sets per body part (legs, back...) as bars, each with a
+ * mark at last week's number. `weeks` ends with this week (see muscleWeeks in lib/stats.js).
  */
 export default function MuscleBars(props) {
   const current = () => props.weeks.at(-1);
   const previous = () => (props.weeks.length > 1 ? props.weeks.at(-2) : null);
-  const groups = () => groupsToShow(props.weeks.slice(-2));
+  const groups = () => regionsToShow(props.weeks.slice(-2));
   // At least 10 sets wide, so a couple of sets don't fill a bar.
   const max = () =>
-    Math.max(10, ...groups().flatMap(([key]) => [current().sets[key] ?? 0, previous()?.sets[key] ?? 0]));
+    Math.max(10, ...groups().flatMap(([key]) => [current().regions[key] ?? 0, previous()?.regions[key] ?? 0]));
   const position = (n) => `${(n / max()) * 100}%`;
 
   return (
@@ -23,8 +23,8 @@ export default function MuscleBars(props) {
           {([key, label], i) => {
             let fill;
             onMount(() => growIn(fill, { delay: i() * 40 }));
-            const now = () => current().sets[key] ?? 0;
-            const before = () => previous()?.sets[key] ?? 0;
+            const now = () => current().regions[key] ?? 0;
+            const before = () => previous()?.regions[key] ?? 0;
             return (
               <li
                 class="grid h-9 grid-cols-[5rem_minmax(0,1fr)_2rem] items-center gap-3"

@@ -2,7 +2,7 @@ import { createResource, createSignal, For, onCleanup, Show } from 'solid-js';
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { ChevronRight, PartyPopper, Repeat, SearchX, Trash2, TriangleAlert, Trophy } from 'lucide-solid';
 import { api } from '../lib/api';
-import { deleteWorkout, itemExerciseId, saveWorkout, workoutList } from '../lib/data';
+import { deleteWorkout, itemExerciseId, progression, saveWorkout, workoutList } from '../lib/data';
 import {
   formatDay,
   formatDuration,
@@ -25,7 +25,9 @@ import { toast, undoable } from '../lib/toast';
 import { useStart } from '../components/StartSheet';
 import { ConfirmSheet, EmptyState, PageHeader, PrTag, Spinner, StatRow } from '../components/ui';
 import { useBack } from '../lib/nav';
-import { countUp, takeCelebration } from '../lib/celebrate';
+import { countUp, freshUnlocks, showCelebration, takeCelebration } from '../lib/celebrate';
+import { levelProgress } from '../lib/achievements';
+import { Badge, XpBar } from '../components/Achievement';
 import { totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
 
 const prCount = (w) => w.items.reduce((n, item) => n + item.sets.filter((s) => s.pr?.length).length, 0);
@@ -56,6 +58,53 @@ function Celebration(props) {
           {facts()}
         </p>
       </Show>
+      <Show when={props.xp}>{(xp) => <XpGain xp={xp()} />}</Show>
+      <Show when={freshUnlocks().length}>
+        <div class="mt-4 border-t-[0.5px] border-separator pt-3 text-left">
+          <p class="t-foot font-semibold tracking-wide text-label-2 uppercase">New titles</p>
+          <For each={freshUnlocks()}>
+            {(u) => (
+              <A href="/achievements" class="anim-pop mt-2.5 flex items-center gap-3 active:opacity-60">
+                <Badge medal={u.tier.medal} icon={u.achievement.icon} size={38} />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-semibold">{u.tier.title}</span>
+                  <span class="t-foot block truncate text-label-2">{u.tier.description}</span>
+                </span>
+                <Show when={u.tier.xp}>
+                  <span class="num t-foot shrink-0 font-semibold text-accent">+{u.tier.xp} XP</span>
+                </Show>
+              </A>
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+/**
+ * The XP the workout earned (worked out on the device as it was saved, plus
+ * the titles' XP once the server confirms them), filling the level bar.
+ */
+function XpGain(props) {
+  const step = () => progression.data()?.rules.level_step ?? 50;
+  const gained = () => props.xp.gained + freshUnlocks().reduce((n, u) => n + u.tier.xp, 0);
+  const before = () => levelProgress(props.xp.before, step());
+  const after = () => levelProgress(props.xp.before + gained(), step());
+  const levelUp = () => after().level > before().level;
+  const [counted, setCounted] = createSignal(1);
+  onCleanup(countUp(setCounted, { delay: 650, duration: 1000 }));
+  return (
+    <div class="celebrate-rise mt-4 text-left" style={{ 'animation-delay': '640ms' }}>
+      <div class="flex items-baseline justify-between gap-3">
+        <span class="num t-headline text-accent">+{Math.round(gained() * counted()).toLocaleString('en')} XP</span>
+        <Show when={levelUp()} fallback={<span class="t-foot font-semibold text-label-2">Level {after().level}</span>}>
+          <span class="pill pill-accent celebrate-level">Level up! {after().level}</span>
+        </Show>
+      </div>
+      <div class="mt-1.5">
+        <XpBar from={levelUp() ? 0 : before().fraction} fraction={after().fraction} delay={700} />
+      </div>
     </div>
   );
 }
@@ -67,7 +116,12 @@ export default function WorkoutDetail() {
   const { resume } = useStart();
   const [confirmDelete, setConfirmDelete] = createSignal(false);
   // Just finished: the card above the stats, and the stats counting up from 0.
-  const fresh = takeCelebration(params.id);
+  const celebration = takeCelebration(params.id);
+  const fresh = !!celebration;
+  if (fresh) {
+    showCelebration(params.id); // titles the server confirms join the card
+    onCleanup(() => showCelebration(null));
+  }
   const [grown, setGrown] = createSignal(1);
   if (fresh) onCleanup(countUp(setGrown, { delay: 420, duration: 1100 }));
   const grow = (n) => (fresh && n != null ? n * grown() : n);
@@ -139,7 +193,7 @@ export default function WorkoutDetail() {
         </Show>
 
         <Show when={fresh}>
-          <Celebration workout={w()} />
+          <Celebration workout={w()} xp={celebration.xp} />
         </Show>
 
         <div class="mt-3">

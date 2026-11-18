@@ -13,7 +13,8 @@ import {
   TriangleAlert,
 } from 'lucide-solid';
 import { currentUser, isAdmin, signOut } from '../lib/auth';
-import { bodyWeightList } from '../lib/data';
+import { levelProgress, unlocks } from '../lib/achievements';
+import { bodyWeightList, progression } from '../lib/data';
 import { formatDay, formatWeight, plural, timeAgo } from '../lib/format';
 import { canPromptInstall, isIOS, isStandalone, promptInstall } from '../lib/install';
 import { online } from '../lib/network';
@@ -39,6 +40,7 @@ import { setTheme, theme } from '../lib/theme';
 import { toast } from '../lib/toast';
 import { BUILD, checkForUpdate } from '../lib/updates';
 import { wakeLockSupported } from '../lib/wakelock';
+import { Badge, XpBar } from '../components/Achievement';
 import DataTransfer from '../components/DataTransfer';
 import { SwipeRow } from '../components/SwipeRow';
 import ThemePicker from '../components/ThemePicker';
@@ -117,15 +119,42 @@ export default function Profile() {
     <>
       <PageHeader title="You" />
 
-      <div class="card mt-2 flex items-center gap-3 px-4 py-3">
-        <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-[22px] font-semibold text-on-accent">
-          {initials(user()?.full_name)}
+      {/* You, the title you wear and your level: tap for the achievements. */}
+      <A href="/achievements" class="card mt-2 block px-4 py-3 transition-opacity active:opacity-70">
+        <span class="flex items-center gap-3">
+          <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-[22px] font-semibold text-on-accent">
+            {initials(user()?.full_name)}
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="t-title3 block truncate">{user()?.full_name || 'You'}</span>
+            <Show when={progression.data()?.title}>
+              {(title) => (
+                <span class="t-sub flex items-center gap-1.5 truncate font-medium">
+                  <Badge medal={title().medal} icon="star" size={16} /> {title().title}
+                </span>
+              )}
+            </Show>
+            <span class="t-foot block truncate text-label-2">{user()?.email}</span>
+          </span>
+          <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
         </span>
-        <span class="min-w-0 flex-1">
-          <span class="t-title3 block truncate">{user()?.full_name || 'You'}</span>
-          <span class="t-sub block truncate text-label-2">{user()?.email}</span>
-        </span>
-      </div>
+        <Show when={progression.data()}>
+          {(p) => {
+            const level = () => levelProgress(p().xp, p().rules.level_step);
+            return (
+              <span class="mt-3 flex items-center gap-3">
+                <span class="t-foot shrink-0 font-semibold">Level {level().level}</span>
+                <span class="flex-1">
+                  <XpBar fraction={level().fraction} />
+                </span>
+                <span class="num t-cap shrink-0 text-label-2">
+                  {unlocks(p()).length} {unlocks(p()).length === 1 ? 'title' : 'titles'}
+                </span>
+              </span>
+            );
+          }}
+        </Show>
+      </A>
 
       {/* Only shown when something needs you: the server refused a change. */}
       <Show when={failedEntries().length}>

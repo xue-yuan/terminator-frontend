@@ -15,7 +15,7 @@ import {
   muscleOf,
   saveExercise,
 } from '../lib/data';
-import { groupAfterRename, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
+import { groupAfterRename, muscleLabel } from '../lib/exercises';
 import { formatClock, formatDay, formatLoad, formatNumber, formatWeight, plural } from '../lib/format';
 import { online } from '../lib/network';
 import { restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';
@@ -24,6 +24,7 @@ import { renameInDraft } from '../lib/session';
 import { toast } from '../lib/toast';
 import { UNITS } from '../lib/units';
 import ExerciseNameInput from '../components/ExerciseNameInput';
+import MusclePicker from '../components/MusclePicker';
 import LineChart from '../components/LineChart';
 import {
   ChipToggle,
@@ -461,21 +462,7 @@ function EditSheet(props) {
 
         <Show when={!mergeTarget()}>
           <p class="group-header">Muscle group</p>
-          <div class="flex flex-wrap gap-1.5 px-1" role="radiogroup" aria-label="Muscle group">
-            <For each={MUSCLE_GROUPS}>
-              {([key, label]) => (
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={form().muscle_group === key}
-                  class={chip(form().muscle_group === key)}
-                  onClick={() => pickGroup(key)}
-                >
-                  {label}
-                </button>
-              )}
-            </For>
-          </div>
+          <MusclePicker value={form().muscle_group} onPick={pickGroup} />
           <Show when={fromLibrary()}>
             <p class="group-footer">
               {muscleLabel(form().muscle_group)}, as “{fromLibrary()}” is filed in the library. Tap another to change

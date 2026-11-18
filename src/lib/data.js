@@ -108,8 +108,21 @@ export const catalog = cachedQuery(documentCache('catalog'), () => api('/catalog
  * [{ id, performed_at, name, duration_seconds, sets }]
  */
 export const activity = cachedQuery(documentCache('activity'), () => api('/workouts/activity'));
+/** Your XP, level, title and achievements, worked out from your whole history (GET /progress). */
+export const progression = cachedQuery(documentCache('progression'), () =>
+  api(`/progress?tz=${encodeURIComponent(timeZone)}`),
+);
 
-const QUERIES = { workouts, plans, summary, exercises, body_weights: bodyWeights, catalog, activity };
+const QUERIES = {
+  workouts,
+  plans,
+  summary,
+  exercises,
+  body_weights: bodyWeights,
+  catalog,
+  activity,
+  progress: progression,
+};
 
 /**
  * Something is loading with nothing cached to show yet (the loading bar at the
@@ -117,8 +130,9 @@ const QUERIES = { workouts, plans, summary, exercises, body_weights: bodyWeights
  * list of all workouts doesn't count: until it's there, the calendar shows the
  * recent workouts it already has.
  */
+const QUIET = new Set(['activity', 'progress']); // achievements can arrive a moment later
 export const firstLoad = () =>
-  Object.entries(QUERIES).some(([kind, q]) => kind !== 'activity' && q.loading() && q.data() == null);
+  Object.entries(QUERIES).some(([kind, q]) => !QUIET.has(kind) && q.loading() && q.data() == null);
 
 // Fingerprints (GET /sync/state) of what the device has: each kind is fetched
 // again only when the server's fingerprint moved, so coming back to the app is
@@ -528,11 +542,14 @@ onSynced(async (results) => {
       return [...byId.values()].sort((a, b) => Date.parse(b.measured_at) - Date.parse(a.measured_at));
     });
   }
+  // New XP and titles (and the Workout Complete card waiting for them).
+  if (done.length || weighIns.length) refreshing.push(progression.refresh());
   await Promise.all(refreshing);
   const kinds = [
     ...(done.length ? ['workouts', 'summary', 'exercises', ...(activity.data() ? ['activity'] : [])] : []),
     ...(savedExercises.length ? ['exercises'] : []),
     ...(weighIns.length ? ['body_weights'] : []),
+    ...(done.length || weighIns.length ? ['progress'] : []),
   ];
   if (kinds.length) adoptFingerprints(kinds);
 });
@@ -699,4 +716,14 @@ export async function activatePlan(id) {
 export async function deactivatePlan() {
   await api('/plans/deactivate', { method: 'POST' });
   await afterPlanChange();
+}
+
+// ---- achievements ------------------------------------------------------------------
+
+/** Wear an unlocked tier's title (key "<achievement>:<target>"), or none (null). */
+export async function wearTitle(key) {
+  const title = await api('/progress/title', { method: 'PUT', body: { title: key } });
+  progression.update((p) => p && { ...p, title });
+  adoptFingerprints(['progress']);
+  return title;
 }

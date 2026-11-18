@@ -17,7 +17,18 @@ import {
   Undo2,
   Unlink2,
 } from 'lucide-solid';
-import { catalog, catalogEntry, exerciseByName, exerciseOptions, recentExercises } from '../lib/data';
+import {
+  catalog,
+  catalogEntry,
+  exerciseByName,
+  exerciseOptions,
+  progression,
+  recentExercises,
+  workoutList,
+} from '../lib/data';
+import { levelFor, workoutXp } from '../lib/achievements';
+import { startOfWeek } from '../lib/dates';
+import { weekStreak } from '../lib/stats';
 import { exerciseKey, POPULAR } from '../lib/exercises';
 import {
   describeSets,
@@ -91,6 +102,22 @@ import SpotifyBar from '../components/SpotifyBar';
 import { spotifyStatus } from '../lib/spotify';
 
 const buzz = () => navigator.vibrate?.(8);
+
+/**
+ * The XP a just-saved workout earns, worked out here (it may not be uploaded
+ * for a while): { before, gained, levelUp }, or null if achievements never loaded.
+ */
+function earnedXp(workout) {
+  const p = progression.data();
+  if (!p) return null;
+  const week = startOfWeek(workout.performed_at).getTime();
+  const firstThisWeek = !workoutList().some(
+    (w) => w.id !== workout.id && startOfWeek(w.performed_at).getTime() === week,
+  );
+  const gained = workoutXp(workout, p.rules, { streak: weekStreak(), firstThisWeek });
+  const step = p.rules.level_step;
+  return { before: p.xp, gained, levelUp: levelFor(p.xp + gained, step) > levelFor(p.xp, step) };
+}
 
 /**
  * Pull the workout down to minimise it, like an iOS sheet: a downward drag that
@@ -213,7 +240,7 @@ export default function Session() {
     setSheet(null);
     // A new workout gets confetti and a "Workout Complete" card instead of a toast.
     if (wasEdit || !celebrate()) toast(wasEdit ? 'Changes saved' : 'Workout saved', 'success');
-    else celebrateFinish(workout.id, { records });
+    else celebrateFinish(workout.id, { records, xp: earnedXp(workout) });
     leave(() => navigate(`/workouts/${workout.id}`, { replace: true }));
   };
 

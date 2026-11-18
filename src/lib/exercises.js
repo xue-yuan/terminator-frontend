@@ -3,18 +3,38 @@
 // are searchable but not shown, muscle group) lives on the server, where admins
 // edit it: see `catalog` in lib/data.js.
 
-/** Muscle groups an exercise can be filed under (matches the API). */
+/** Muscle groups an exercise can be filed under (matches the API), head to toe. */
 export const MUSCLE_GROUPS = [
   ['chest', 'Chest', '胸'],
-  ['back', 'Back', '背'],
-  ['legs', 'Legs', '腿'],
-  ['shoulders', 'Shoulders', '肩'],
+  ['lats', 'Lats', '背闊肌'],
+  ['upper_back', 'Upper Back', '中上背'],
+  ['lower_back', 'Lower Back', '下背'],
+  ['front_delts', 'Front Delts', '前三角'],
+  ['side_delts', 'Side Delts', '側三角'],
+  ['rear_delts', 'Rear Delts', '後三角'],
   ['biceps', 'Biceps', '二頭'],
   ['triceps', 'Triceps', '三頭'],
+  ['quads', 'Quads', '股四頭'],
+  ['hamstrings', 'Hamstrings', '腿後'],
+  ['glutes', 'Glutes', '臀・髖'],
+  ['calves', 'Calves', '小腿'],
   ['core', 'Core', '核心'],
   ['other', 'Other', '其他'],
 ];
 export const muscleLabel = (key) => MUSCLE_GROUPS.find(([k]) => k === key)?.[1] ?? null;
+
+/** The body parts the muscle groups add up to: [key, label, zh, muscle groups]. Other belongs to none. */
+export const REGIONS = [
+  ['chest', 'Chest', '胸', ['chest']],
+  ['back', 'Back', '背', ['lats', 'upper_back', 'lower_back']],
+  ['shoulders', 'Shoulders', '肩', ['front_delts', 'side_delts', 'rear_delts']],
+  ['arms', 'Arms', '手臂', ['biceps', 'triceps']],
+  ['legs', 'Legs', '腿', ['quads', 'hamstrings', 'glutes', 'calves']],
+  ['core', 'Core', '核心', ['core']],
+];
+const REGION_OF = new Map(REGIONS.flatMap(([region, , , muscles]) => muscles.map((m) => [m, region])));
+/** The body part of a muscle group ('other' for Other, or a group this version doesn't know). */
+export const regionOf = (muscle) => REGION_OF.get(muscle) ?? 'other';
 
 /** Offered as quick picks before you have much history. */
 export const POPULAR = [

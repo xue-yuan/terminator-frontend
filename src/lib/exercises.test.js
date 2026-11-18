@@ -5,19 +5,19 @@ describe('groupAfterRename', () => {
   const original = { name: 'Dumbbell Fly', group: 'chest' };
 
   it('takes the library’s group for the new name', () => {
-    expect(groupAfterRename({ name: 'lateral raise ', original, current: 'chest', libraryGroup: 'shoulders' })).toBe(
-      'shoulders',
+    expect(groupAfterRename({ name: 'lateral raise ', original, current: 'chest', libraryGroup: 'side_delts' })).toBe(
+      'side_delts',
     );
   });
 
   it('keeps the shown group for a name the library doesn’t know', () => {
-    expect(groupAfterRename({ name: 'Cable Y Raise', original, current: 'shoulders', libraryGroup: undefined })).toBe(
-      'shoulders',
+    expect(groupAfterRename({ name: 'Cable Y Raise', original, current: 'side_delts', libraryGroup: undefined })).toBe(
+      'side_delts',
     );
   });
 
   it('goes back to the exercise’s own group when the name is back to what it was', () => {
-    expect(groupAfterRename({ name: 'dumbbell fly', original, current: 'shoulders', libraryGroup: 'chest' })).toBe(
+    expect(groupAfterRename({ name: 'dumbbell fly', original, current: 'side_delts', libraryGroup: 'chest' })).toBe(
       'chest',
     );
     const ownChoice = { name: 'Pec Deck', group: 'triceps' }; // set by hand, unlike the library's chest
@@ -28,7 +28,13 @@ describe('groupAfterRename', () => {
 
   it('never overrides a group picked by hand', () => {
     expect(
-      groupAfterRename({ name: 'Lateral Raise', original, current: 'biceps', picked: true, libraryGroup: 'shoulders' }),
+      groupAfterRename({
+        name: 'Lateral Raise',
+        original,
+        current: 'biceps',
+        picked: true,
+        libraryGroup: 'side_delts',
+      }),
     ).toBe('biceps');
   });
 });

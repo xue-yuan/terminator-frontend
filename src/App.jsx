@@ -4,6 +4,8 @@ import { isSignedIn } from './lib/auth';
 import { createAppHistory } from './lib/nav';
 import AppLayout, { UpdatePrompt } from './components/Layout';
 import { Toaster } from './components/ui';
+import { watchUnlocks } from './lib/unlocks';
+import Achievements from './pages/Achievements';
 import Admin from './pages/Admin';
 import Body from './pages/Body';
 import Calendar from './pages/Calendar';
@@ -40,6 +42,8 @@ function GuestOnly() {
 
 // The app's own page stack, so the browser has no pages to swipe between (lib/nav.js).
 const appHistory = createAppHistory();
+// New titles get a word, wherever you are (lib/unlocks.js).
+watchUnlocks();
 
 export default function App() {
   return (
@@ -70,6 +74,7 @@ export default function App() {
         <Route path="/plans/:id" component={PlanDetail} />
         <Route path="/plans/:id/edit" component={PlanEditor} />
         <Route path="/profile" component={Profile} />
+        <Route path="/achievements" component={Achievements} />
         <Route path="/body" component={Body} />
         <Route path="/admin" component={Admin} />
         <Route path="/admin/library" component={Library} />
