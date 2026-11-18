@@ -12,6 +12,12 @@ render(() => <App />, document.getElementById('root'));
 document.addEventListener('touchstart', () => {}, { passive: true });
 // Safari ignores user-scalable=no; its pinch gesture can still be cancelled (iOS only fires these).
 for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, (e) => e.preventDefault());
+// Pressing and holding a link or picture opens the browser's menu on Android (iOS: index.css). Fields keep theirs.
+document.addEventListener('contextmenu', (e) => {
+  if (matchMedia('(pointer: coarse)').matches && !e.target.closest?.('input, textarea, [contenteditable]')) {
+    e.preventDefault();
+  }
+});
 
 // Show cached data instantly, then fetch whatever changed on the server, quietly.
 if (isSignedIn()) refreshAll();

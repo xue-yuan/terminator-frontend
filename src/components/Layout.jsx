@@ -5,8 +5,7 @@ import { ChevronUp, CircleUser, ClipboardList, History, House, Plus, Trash2 } fr
 import { firstLoad } from '../lib/data';
 import { formatClock, plural } from '../lib/format';
 import { pageIn, slideAwayRight } from '../lib/motion';
-import { backTarget, historyDepth, isTabRoot, markStart, useBack } from '../lib/nav';
-import { isIOS, isStandalone } from '../lib/install';
+import { backTarget, isTabRoot, markStart, useArrivals, useBack } from '../lib/nav';
 import { useNow } from '../lib/now';
 import { restProgress, restRemaining } from '../lib/rest';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
@@ -21,29 +20,28 @@ export default function AppLayout(props) {
   const fullscreen = () => FULLSCREEN.test(location.pathname);
   let main;
   const back = useBack();
-  // Safari's own tabs already go back with this gesture; the app on the home screen doesn't.
   const edgeBack = createEdgeBack(
     () => main,
-    () => !!backTarget() && !fullscreen() && !(isIOS() && !isStandalone()),
+    () => !!backTarget() && !fullscreen(),
     () => back(backTarget()),
   );
-  let depth;
-  onMount(() => {
-    markStart();
-    depth = historyDepth();
-  });
+  onMount(markStart);
+  const arrival = useArrivals();
   // Pages move like iOS: deeper pages slide in from the right, going back
   // slides the previous one in from the left, tabs cross-fade. The workout
   // animates itself (it rises from and sinks back into the bottom bar).
+  // (on()'s own previous value is undefined the first time.)
+  let shown = location.pathname;
   createEffect(
     on(
       () => location.pathname,
-      (path, prev) => {
-        const before = depth;
-        depth = historyDepth();
+      (path) => {
+        const prev = shown;
+        shown = path;
+        const kind = arrival();
         if (path === '/session' || prev === '/session') return;
         if (isTabRoot(path) && isTabRoot(prev)) return pageIn(main, 'fade');
-        pageIn(main, depth < before ? 'pop' : depth > before ? 'push' : 'fade');
+        pageIn(main, kind ?? 'fade');
       },
       { defer: true },
     ),
@@ -263,11 +261,12 @@ function createEdgeBack(getMain, enabled, goBack) {
     drag.lastT = e.timeStamp;
     place(drag.dx, false);
   };
-  const onEnd = () => {
+  const onEnd = (e) => {
     const d = drag;
     drag = null;
     if (!d?.active) return;
-    if (d.dx > window.innerWidth / 3 || (d.dx > 30 && d.v > 0.4)) {
+    // Cancelled (the system took the touch over): the page settles back.
+    if (e.type === 'touchend' && (d.dx > window.innerWidth / 3 || (d.dx > 30 && d.v > 0.4))) {
       slideAwayRight({ dragged: d.dx }); // a copy leaves from where the finger let go
       place(0, false);
       goBack();

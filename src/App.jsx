@@ -1,6 +1,7 @@
 import { Show } from 'solid-js';
-import { Navigate, Route, Router } from '@solidjs/router';
+import { MemoryRouter, Navigate, Route } from '@solidjs/router';
 import { isSignedIn } from './lib/auth';
+import { createAppHistory } from './lib/nav';
 import AppLayout, { UpdatePrompt } from './components/Layout';
 import { Toaster } from './components/ui';
 import Admin from './pages/Admin';
@@ -37,10 +38,13 @@ function GuestOnly() {
   );
 }
 
+// The app's own page stack, so the browser has no pages to swipe between (lib/nav.js).
+const appHistory = createAppHistory();
+
 export default function App() {
   return (
-    <Router
-      scrollRestoration
+    <MemoryRouter
+      history={appHistory}
       root={(props) => (
         <>
           {props.children}
@@ -71,6 +75,6 @@ export default function App() {
         <Route path="/admin/library" component={Library} />
         <Route path="*" component={() => <Navigate href="/" />} />
       </Route>
-    </Router>
+    </MemoryRouter>
   );
 }
