@@ -1,11 +1,10 @@
-import { createEffect, createSignal, onCleanup } from 'solid-js';
 import { useBeforeLeave, useNavigate } from '@solidjs/router';
 
 // Pages live on the app's own stack, not the browser's. The browser's history
 // stays a single entry (only its address follows along), so there is no page
-// for iOS to swipe back or forward to, the way it does in Safari. Going back
-// is the app's own, like a native app: the header's back button and the swipe
-// from the left edge (components/Layout.jsx), both only where there's a back.
+// for iOS to swipe back or forward to, the way it does in Safari. Like an app,
+// going back is only the back button in a page's header (up a level), never a
+// swipe through the pages you've seen.
 
 const stack = []; // { path, y }: each page and how far down it was scrolled
 let index = 0;
@@ -91,19 +90,4 @@ export function useBack() {
     if (startIndex != null && index > startIndex) return navigate(-1);
     navigate(fallback, { replace: true, back: true });
   };
-}
-
-// Where the page on screen goes back to (its header's back button), for the
-// swipe-from-the-left-edge gesture (components/Layout.jsx). null on tab roots.
-const [backTarget, setBackTarget] = createSignal(null);
-export { backTarget };
-
-/** A page with a back button calls this (its PageHeader does). */
-export function useBackTarget(target) {
-  createEffect(() => {
-    const path = target();
-    if (!path) return;
-    setBackTarget(path);
-    onCleanup(() => setBackTarget((current) => (current === path ? null : current)));
-  });
 }

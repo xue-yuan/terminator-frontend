@@ -4,7 +4,7 @@ import { A } from '@solidjs/router';
 import { Check, ChevronLeft, Info, TriangleAlert, Trophy, X } from 'lucide-solid';
 import { toasts } from '../lib/toast';
 import { reducedMotion } from '../lib/motion';
-import { useBack, useBackTarget } from '../lib/nav';
+import { useBack } from '../lib/nav';
 
 /** Flat mark: a visor slit with one eye. */
 export function Logo(props) {
@@ -25,7 +25,6 @@ export const Spinner = (props) => <span class={`spinner ${props.class ?? ''}`} r
  */
 export function PageHeader(props) {
   const back = useBack();
-  useBackTarget(() => props.back);
   return (
     <header class="mb-2" style={{ 'padding-top': 'calc(env(safe-area-inset-top) + 0.25rem)' }}>
       <div class="-mx-2 flex min-h-11 items-center gap-1">
