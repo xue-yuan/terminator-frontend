@@ -5,6 +5,7 @@
 
 import { createEffect, createRoot, on } from 'solid-js';
 import { unlocks } from './achievements';
+import { currentUser } from './auth';
 import { addFreshUnlocks, celebrating } from './celebrate';
 import { progression } from './data';
 import { plural } from './format';
@@ -12,7 +13,9 @@ import { goTo } from './nav';
 import { loadPref, savePref } from './storage';
 import { toast } from './toast';
 
-const SEEN = 'seenUnlocks';
+// What each account has seen (prefs outlive signing out, and someone else may sign in next).
+const LEGACY_SEEN = 'seenUnlocks'; // before it was per account
+const seenKey = () => `seenUnlocks:${currentUser()?.id}`;
 // Older than this, an unlock is news from another device or the history: noted, not announced.
 const RECENT_MS = 2 * 24 * 3600 * 1000;
 
@@ -27,11 +30,13 @@ export function watchUnlocks() {
         (progress) => {
           if (!progress) return;
           const all = unlocks(progress);
-          const seen = loadPref(SEEN, null);
+          const key = seenKey();
+          const seen = loadPref(key, null) ?? loadPref(LEGACY_SEEN, null);
           savePref(
-            SEEN,
+            key,
             all.map((u) => u.key),
           );
+          savePref(LEGACY_SEEN, null);
           if (seen === null) {
             // The first time: what the history already earned, in one go.
             if (all.length) {
