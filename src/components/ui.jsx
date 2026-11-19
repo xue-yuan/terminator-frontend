@@ -237,22 +237,15 @@ export function Sheet(props) {
     }
   });
 
-  // Drag to dismiss (from the grabber / title bar).
+  // Drag down to dismiss, like an iOS sheet: by the title bar at any time, or
+  // anywhere while the sheet is scrolled to the top (scrolled down, a drag
+  // down scrolls it back up). With a finger that takes touch events: only a
+  // non-passive touchmove can take a vertical drag over from the browser
+  // (pointer events get cancelled). A mouse drags the title bar.
   let drag = null;
-  const onPointerDown = (e) => {
-    if (props.locked || e.button > 0 || e.target.closest('button')) return;
-    drag = { y: e.clientY, t: e.timeStamp, dy: 0 };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e) => {
-    if (!drag) return;
-    drag.dy = Math.max(0, e.clientY - drag.y);
-    drag.v = drag.dy / Math.max(1, e.timeStamp - drag.t);
-    dialog.style.transform = drag.dy ? `translateY(${drag.dy}px)` : '';
-  };
-  const onPointerUp = () => {
-    if (!drag) return;
-    const { dy, v = 0 } = drag;
+  const follow = (dy) => (dialog.style.transform = dy ? `translateY(${dy}px)` : '');
+  const release = () => {
+    const { dy, v } = drag;
     drag = null;
     if (dy > 110 || (dy > 30 && v > 0.6)) return props.onClose();
     if (dy && !reducedMotion()) {
@@ -261,12 +254,72 @@ export function Sheet(props) {
         easing: 'cubic-bezier(0.32, 0.72, 0, 1)',
       });
     }
-    dialog.style.transform = '';
+    follow(0);
+  };
+  /** Something between the finger and the sheet scrolls by itself, or is scrolled down. */
+  const scrollsFirst = (el) => {
+    for (; el && el !== dialog; el = el.parentElement) {
+      if (el.matches('textarea, input[type=range], [role=listbox]')) return true;
+      if (el.scrollTop > 0 && el.scrollHeight > el.clientHeight) return true;
+    }
+    return dialog.scrollTop > 0;
+  };
+  const onTouchStart = (e) => {
+    const t = e.touches[0];
+    drag =
+      e.touches.length === 1 && !props.locked && e.target !== dialog // the dialog itself: its backdrop
+        ? { x: t.clientX, y: t.clientY, bar: !!e.target.closest('[data-sheet-bar]'), target: e.target, active: false }
+        : null;
+  };
+  const onTouchMove = (e) => {
+    if (!drag) return;
+    const t = e.touches[0];
+    if (!drag.active) {
+      const dx = t.clientX - drag.x;
+      const dy = t.clientY - drag.y;
+      if (Math.hypot(dx, dy) < 10) return;
+      if (!(dy > Math.abs(dx) * 1.2) || (!drag.bar && scrollsFirst(drag.target))) {
+        drag = null; // a scroll, or a sideways swipe: not ours
+        return;
+      }
+      Object.assign(drag, { active: true, y: t.clientY, lastY: t.clientY, lastT: e.timeStamp, v: 0, dy: 0 });
+    }
+    e.preventDefault();
+    drag.dy = Math.max(0, t.clientY - drag.y);
+    drag.v = (t.clientY - drag.lastY) / Math.max(1, e.timeStamp - drag.lastT);
+    drag.lastY = t.clientY;
+    drag.lastT = e.timeStamp;
+    follow(drag.dy);
+  };
+  const onTouchEnd = () => {
+    if (drag?.active) release();
+    else drag = null;
+  };
+  const onPointerDown = (e) => {
+    if (e.pointerType === 'touch' || props.locked || e.button > 0 || e.target.closest('button')) return;
+    drag = { y: e.clientY, t: e.timeStamp, dy: 0, v: 0 };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e) => {
+    if (!drag || e.pointerType === 'touch') return;
+    drag.dy = Math.max(0, e.clientY - drag.y);
+    drag.v = drag.dy / Math.max(1, e.timeStamp - drag.t);
+    follow(drag.dy);
+  };
+  const onPointerUp = (e) => {
+    if (drag && e.pointerType !== 'touch') release();
+  };
+  const listen = (el) => {
+    dialog = el;
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd);
   };
 
   return (
     <dialog
-      ref={dialog}
+      ref={listen}
       class="sheet"
       aria-label={props.title}
       // Only user dismissals (Esc) should report back; a programmatic close
@@ -278,6 +331,7 @@ export function Sheet(props) {
     >
       <div
         class="sticky top-0 z-10 touch-none bg-bg px-4 pt-1.5 pb-2"
+        data-sheet-bar
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
