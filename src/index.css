@@ -1041,6 +1041,15 @@
   }
 
   /* ---- sheets (native <dialog>) ---- */
+  /* The page behind holds still while a sheet is up (until it has slid away).
+     overscroll-behavior on the sheet only helps when the sheet itself scrolls:
+     a short sheet, or a drag on the backdrop, would scroll the page instead
+     (iOS Safari ignores it on a sheet with nothing to scroll). The gutter keeps
+     a desktop scrollbar's width, so the page doesn't jump sideways. */
+  html:has(dialog.sheet[open]) {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
   dialog.sheet {
     margin: auto 0 0;
     width: 100%;
