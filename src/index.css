@@ -14,6 +14,10 @@
   --medal-silver: #8c97a3;
   --medal-gold: #d69a00;
   --medal-platinum: #2fa8c6;
+  /* A title given by hand: holographic, unlike anything you can earn. */
+  --medal-special: #8b5cf6;
+  --medal-special-from: #f0569c;
+  --medal-special-to: #22a6d6;
   --ok: #248a3d;
   --switch-on: #34c759;
   --warn: #c76a00;
@@ -29,6 +33,9 @@
   --medal-silver: #aeb9c4;
   --medal-gold: #f5b800;
   --medal-platinum: #5cd0ea;
+  --medal-special: #a78bfa;
+  --medal-special-from: #ff74b3;
+  --medal-special-to: #4cc9f0;
   --ok: #30d158;
   --switch-on: #30d158;
   --warn: #ff9f0a;
@@ -1239,6 +1246,21 @@
   .badge[data-medal='platinum'] {
     --medal: var(--medal-platinum);
   }
+  .badge[data-medal='special'] {
+    --medal: var(--medal-special);
+    background: linear-gradient(135deg, var(--medal-special-from), var(--medal-special) 50%, var(--medal-special-to)) 0
+      0 / 220% 220%;
+    animation: special-sheen 5s ease-in-out infinite alternate;
+  }
+  @keyframes special-sheen {
+    to {
+      background-position: 100% 100%;
+    }
+  }
+  .pill-special {
+    background: color-mix(in srgb, var(--medal-special) 16%, transparent);
+    color: var(--medal-special);
+  }
   .badge[data-medal='none'] {
     color: var(--label-3);
     background: var(--fill);
@@ -1268,6 +1290,21 @@
   }
   .celebrate-rise {
     animation: celebrate-rise 480ms 480ms var(--ease-ios) both;
+  }
+  /* A title given by hand (components/TitleGift.jsx): the same pop and ring, in its colours. */
+  .gift-badge {
+    position: relative;
+    border-radius: 9999px;
+    animation: celebrate-pop 720ms 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .gift-badge::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--medal-special);
+    border-radius: inherit;
+    pointer-events: none;
+    animation: celebrate-ring 900ms 440ms ease-out both;
   }
   .celebrate-level {
     animation: celebrate-pop 620ms 1500ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -1425,6 +1462,9 @@
   }
   .btn:active:not(:disabled) {
     transform: none;
+  }
+  .badge[data-medal='special'] {
+    animation: none;
   }
   .seg-thumb,
   .switch::after {

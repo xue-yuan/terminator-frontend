@@ -108,9 +108,15 @@ export const catalog = cachedQuery(documentCache('catalog'), () => api('/catalog
  * [{ id, performed_at, name, duration_seconds, sets }]
  */
 export const activity = cachedQuery(documentCache('activity'), () => api('/workouts/activity'));
-/** Your XP, level, title and achievements, worked out from your whole history (GET /progress). */
-export const progression = cachedQuery(documentCache('progression'), () =>
-  api(`/progress?tz=${encodeURIComponent(timeZone)}`),
+/**
+ * Your XP, level, title and achievements, worked out from your whole history
+ * (GET /progress), titles given by hand included (`granted`: builds before this
+ * one never ask, so they can't note one as seen before it gets its card here).
+ * Cached under a new key so this build fetches its own copy the first time.
+ */
+save('cache:progression', null); // the copy older builds kept, without titles given by hand
+export const progression = cachedQuery(documentCache('progress'), () =>
+  api(`/progress?tz=${encodeURIComponent(timeZone)}&granted=true`),
 );
 
 const QUERIES = {

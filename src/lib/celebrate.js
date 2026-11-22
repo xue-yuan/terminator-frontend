@@ -83,8 +83,16 @@ export function confetti({ volleys = 1 } = {}) {
   canvas.width = Math.round(W * dpr);
   canvas.height = Math.round(H * dpr);
   canvas.setAttribute('aria-hidden', 'true');
-  canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:70';
+  canvas.style.cssText =
+    'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:70;' +
+    'margin:0;padding:0;border:0;background:none;max-width:none;max-height:none';
   document.body.append(canvas);
+  // Over an open sheet (a modal dialog sits in the top layer, above any z-index):
+  // join the top layer too, after it, so the confetti falls in front of it.
+  if (document.querySelector('dialog[open]') && canvas.showPopover) {
+    canvas.popover = 'manual';
+    canvas.showPopover();
+  }
   ctx.scale(dpr, dpr);
 
   const colors = confettiColors();

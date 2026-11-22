@@ -2,9 +2,11 @@
 // history, so they show up whenever the achievements refresh (after a workout
 // or weigh-in reaches it). On the Workout Complete card they join the card;
 // anywhere else a toast says so, with a button to the Achievements page.
+// A title given by hand gets a card of its own (components/TitleGift.jsx) as
+// soon as the app opens, however long ago it was given.
 
-import { createEffect, createRoot, on } from 'solid-js';
-import { unlocks } from './achievements';
+import { createEffect, createRoot, createSignal, on } from 'solid-js';
+import { isGranted, unlocks } from './achievements';
 import { currentUser } from './auth';
 import { addFreshUnlocks, celebrating } from './celebrate';
 import { progression } from './data';
@@ -20,6 +22,15 @@ const seenKey = () => `seenUnlocks:${currentUser()?.id}`;
 const RECENT_MS = 2 * 24 * 3600 * 1000;
 
 const view = { label: 'View', run: () => goTo('/achievements') };
+const recent = (u) => Date.now() - Date.parse(u.tier.unlocked_at) < RECENT_MS;
+
+// Titles given by hand waiting for their card, first one on screen.
+const [gifts, setGifts] = createSignal([]);
+export { gifts };
+/** The card on screen was closed: on to the next one, if any. */
+export const dismissGift = () => setGifts((list) => list.slice(1));
+const showGifts = (list) =>
+  setGifts((queued) => [...queued, ...list.filter((u) => !queued.some((q) => q.key === u.key))]);
 
 /** Start watching (once, when the app starts). */
 export function watchUnlocks() {
@@ -38,16 +49,22 @@ export function watchUnlocks() {
           );
           savePref(LEGACY_SEEN, null);
           if (seen === null) {
-            // The first time: what the history already earned, in one go.
-            if (all.length) {
-              toast(`Level ${progress.level} · ${plural(all.length, 'title')} from your history`, 'pr', {
+            // The first time on this device: what the history already earned, in one go
+            // (a title given in the last couple of days still gets its card).
+            const given = all.filter((u) => isGranted(u.achievement) && recent(u));
+            showGifts(given);
+            const earned = all.filter((u) => !given.includes(u));
+            if (earned.length) {
+              toast(`Level ${progress.level} · ${plural(earned.length, 'title')} from your history`, 'pr', {
                 action: view,
               });
             }
             return;
           }
           const known = new Set(seen);
-          const fresh = all.filter((u) => !known.has(u.key) && Date.now() - Date.parse(u.tier.unlocked_at) < RECENT_MS);
+          const unseen = all.filter((u) => !known.has(u.key));
+          showGifts(unseen.filter((u) => isGranted(u.achievement)));
+          const fresh = unseen.filter((u) => !isGranted(u.achievement) && recent(u));
           if (!fresh.length) return;
           const card = celebrating();
           const forCard = card ? fresh.filter((u) => u.tier.workout_id === card || u.achievement.id === 'level') : [];

@@ -183,7 +183,9 @@ function AchievementSheet(props) {
                             </A>
                           </Show>
                         </Show>
-                        <span class="text-label-2"> · +{tier.xp} XP</span>
+                        <Show when={tier.xp}>
+                          <span class="text-label-2"> · +{tier.xp} XP</span>
+                        </Show>
                       </p>
                     </div>
                     <Show when={tier.unlocked_at}>

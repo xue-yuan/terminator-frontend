@@ -3,6 +3,7 @@ import { MemoryRouter, Navigate, Route } from '@solidjs/router';
 import { isSignedIn } from './lib/auth';
 import { createAppHistory } from './lib/nav';
 import AppLayout, { UpdatePrompt } from './components/Layout';
+import TitleGift from './components/TitleGift';
 import { Toaster } from './components/ui';
 import { watchUnlocks } from './lib/unlocks';
 import Achievements from './pages/Achievements';
@@ -54,6 +55,7 @@ export default function App() {
           {props.children}
           <Toaster />
           <UpdatePrompt />
+          <TitleGift />
         </>
       )}
     >

@@ -5,7 +5,11 @@
 
 import { isWarmup } from './format';
 
-export const MEDALS = ['bronze', 'silver', 'gold', 'platinum'];
+// Lowest to highest. 'special' is a title given by hand to one person (never earned).
+export const MEDALS = ['bronze', 'silver', 'gold', 'platinum', 'special'];
+
+/** A title given by hand to one person rather than earned (the server only lists it to them). */
+export const isGranted = (achievement) => achievement.metric === 'granted';
 
 /** "<achievement>:<target>", as the server names a title (1 not 1.0, 1000000 not 1e6). */
 export const titleKey = (achievement, tier) => `${achievement.id}:${Number(tier.target)}`;
