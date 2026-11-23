@@ -113,7 +113,7 @@ export default function ShareSheet(props) {
           {(p) => <img src={p.url} alt={props.alt ?? 'Picture to share'} class="anim-pop block h-full w-full" />}
         </Show>
       </div>
-      <div class="mt-5 grid gap-2" classList={{ 'grid-cols-2': canShare() }}>
+      <div class="mt-5 grid gap-2" classList={{ 'grid-cols-1': canShare() }}>
         <Show when={canShare()}>
           <button type="button" class="btn btn-lg btn-primary" disabled={!blob()} onClick={share}>
             <Share size={19} /> Share
