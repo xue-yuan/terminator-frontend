@@ -119,7 +119,7 @@ export default function ShareSheet(props) {
             <Share size={19} /> Share
           </button>
         </Show>
-        <button
+        {/* <button
           type="button"
           class="btn btn-lg"
           classList={{ 'btn-gray': canShare(), 'btn-primary': !canShare() }}
@@ -127,7 +127,7 @@ export default function ShareSheet(props) {
           onClick={save}
         >
           <Download size={19} /> Save Image
-        </button>
+        </button> */}
       </div>
     </Sheet>
   );
