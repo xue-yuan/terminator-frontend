@@ -1,4 +1,4 @@
-import { createEffect, createRoot, createSignal, on } from 'solid-js';
+import { batch, createEffect, createRoot, createSignal, on } from 'solid-js';
 import { api, OfflineError } from './api';
 import { isSignedIn } from './auth';
 import { online } from './network';
@@ -59,6 +59,7 @@ const [outbox, setOutboxSignal] = createSignal(upgradeStored(initialRecords('out
 const [syncing, setSyncing] = createSignal(false);
 const [lastSyncedAt, setLastSyncedAt] = createSignal(load('lastSyncedAt'));
 const listeners = new Set();
+const uploadHandlers = new Map();
 const rejectionHandlers = new Map();
 
 export { outbox, syncing, lastSyncedAt };
@@ -93,9 +94,17 @@ function removeVersion(version) {
   if (entry) removeEntries([entry]);
 }
 
-/** Subscribe to successful syncs: fn([{ entry, result }]) */
+/** Subscribe to successful syncs, once a run of uploads is over: fn([{ entry, result }]) */
 export function onSynced(fn) {
   listeners.add(fn);
+}
+
+/**
+ * Put the server's copy of an uploaded `type` change into the cache:
+ * fn(entry, result), run synchronously as its entry leaves the queue.
+ */
+export function onUploaded(type, fn) {
+  uploadHandlers.set(type, fn);
 }
 
 /**
@@ -163,11 +172,9 @@ async function drain() {
       const entry = pendingEntries().find((e) => !attempted.has(e.version));
       if (!entry) break;
       attempted.add(entry.version);
+      let result;
       try {
-        const result = await send(entry);
-        // Only drop it if it wasn't replaced by a newer edit while in flight.
-        removeVersion(entry.version);
-        synced.push({ entry, result });
+        result = await send(entry);
       } catch (err) {
         if (isTransient(err)) break;
         if (rejectionHandlers.get(entry.type)?.(entry, err)) {
@@ -177,7 +184,16 @@ async function drain() {
         // Permanent rejection (e.g. 422): park it so it doesn't block the rest.
         const current = outbox().find((e) => e.version === entry.version);
         if (current) putEntries([{ ...current, error: err.message }]);
+        continue;
       }
+      // The server's copy goes into the cache in the same step the entry leaves
+      // the queue. In between, the thing would be in neither, and whatever
+      // shows it (the Workout Complete card) would be torn down and built again.
+      batch(() => {
+        removeVersion(entry.version); // unless a newer edit replaced it while in flight
+        uploadHandlers.get(entry.type)?.(entry, result);
+      });
+      synced.push({ entry, result });
     }
   } finally {
     setSyncing(false);

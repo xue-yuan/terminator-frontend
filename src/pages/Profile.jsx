@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js';
+import { createEffect, createSignal, For, on, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import {
   BookOpen,
@@ -13,10 +13,12 @@ import {
   Trash2,
   TriangleAlert,
   Users,
+  X,
 } from 'lucide-solid';
-import { currentUser, isAdmin, signOut } from '../lib/auth';
+import { api } from '../lib/api';
+import { currentUser, isAdmin, signOut, updateUser } from '../lib/auth';
 import { levelProgress, unlocks } from '../lib/achievements';
-import { bodyWeightList, community, progression } from '../lib/data';
+import { bodyWeightList, community, progression, refreshAll } from '../lib/data';
 import { formatDay, formatWeight, plural, timeAgo } from '../lib/format';
 import { canPromptInstall, isIOS, isStandalone, promptInstall } from '../lib/install';
 import { online } from '../lib/network';
@@ -48,7 +50,7 @@ import { Badge, CommunityTag, XpBar } from '../components/Achievement';
 import DataTransfer from '../components/DataTransfer';
 import { SwipeRow } from '../components/SwipeRow';
 import ThemePicker from '../components/ThemePicker';
-import { ConfirmSheet, PageHeader, Section, Segmented, Switch } from '../components/ui';
+import { ConfirmSheet, PageHeader, Section, Segmented, Sheet, Switch } from '../components/ui';
 
 /** What a queued change is, for the list of rejected ones. */
 function describeEntry(entry) {
@@ -119,9 +121,18 @@ export default function Profile() {
     }
   };
 
+  const [editingName, setEditingName] = createSignal(false);
+
   return (
     <>
-      <PageHeader title="You" />
+      <PageHeader
+        title="You"
+        actions={
+          <button type="button" class="btn btn-plain h-11 px-2" onClick={() => setEditingName(true)}>
+            Edit
+          </button>
+        }
+      />
 
       {/* You, the title you wear and your level: tap for the achievements. */}
       <A href="/achievements" class="card mt-2 block px-4 py-3 transition-opacity active:opacity-70">
@@ -458,6 +469,8 @@ export default function Profile() {
         </button>
       </div>
 
+      <NameSheet open={editingName()} onClose={() => setEditingName(false)} />
+
       <ConfirmSheet
         open={confirmSignOut()}
         onClose={() => setConfirmSignOut(false)}
@@ -472,6 +485,93 @@ export default function Profile() {
         </Show>
       </ConfirmSheet>
     </>
+  );
+}
+
+const NAME_MAX = 40; // the server's limit too
+
+/** Your name as others see it (Community, share cards): it starts as your Google account's. */
+function NameSheet(props) {
+  const [name, setName] = createSignal('');
+  const [busy, setBusy] = createSignal(false);
+  let input;
+  createEffect(
+    on(
+      () => props.open,
+      (open) => {
+        if (!open) return;
+        setName(currentUser()?.full_name ?? '');
+        // After the sheet has risen: focusing during the slide makes iOS jump.
+        setTimeout(() => input?.focus(), 320);
+      },
+    ),
+  );
+  const tidy = () => name().split(/\s+/).filter(Boolean).join(' ');
+  const changed = () => tidy() !== (currentUser()?.full_name ?? '');
+
+  async function save(e) {
+    e.preventDefault();
+    if (!tidy() || busy()) return;
+    if (!changed()) return props.onClose();
+    setBusy(true);
+    try {
+      updateUser(await api('/users/me', { method: 'PATCH', body: { full_name: tidy() } }));
+      refreshAll({ force: true }); // the community list has your new name
+      toast('Name changed', 'success');
+      props.onClose();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Sheet open={props.open} onClose={() => props.onClose()} title="Your Name" locked={busy()}>
+      <form onSubmit={save}>
+        <div class="group">
+          <label class="row">
+            <input
+              ref={input}
+              class="field-inline"
+              aria-label="Name"
+              placeholder="Name"
+              autocomplete="nickname"
+              enterkeyhint="done"
+              maxlength={NAME_MAX}
+              value={name()}
+              onInput={(e) => setName(e.currentTarget.value)}
+            />
+            <Show when={name()}>
+              <button
+                type="button"
+                class="-mr-1.5 grid size-8 shrink-0 place-items-center active:opacity-60"
+                aria-label="Clear name"
+                onClick={() => {
+                  setName('');
+                  input.focus();
+                }}
+              >
+                <span class="grid size-[18px] place-items-center rounded-full bg-label-3 text-card">
+                  <X size={12} strokeWidth={3.5} />
+                </span>
+              </button>
+            </Show>
+          </label>
+        </div>
+        <p class="group-footer">
+          What everyone sees in Community and on the pictures you share.{online() ? '' : ' Needs a connection.'}
+        </p>
+        <button
+          type="submit"
+          class="btn btn-lg btn-primary btn-block mt-4"
+          aria-busy={busy()}
+          disabled={!tidy() || !online()}
+        >
+          Save
+        </button>
+      </form>
+    </Sheet>
   );
 }
 

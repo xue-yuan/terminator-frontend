@@ -8,7 +8,7 @@ import { refreshSpotifyStatus } from './spotify';
 import { exerciseKey } from './exercises';
 import { setCount } from './format';
 import { clearServerCaches, deleteRecords, initialRecords, load, putRecords, save } from './storage';
-import { dropQueued, entriesOf, onRejected, onSynced, queue, rewriteQueued } from './sync';
+import { dropQueued, entriesOf, onRejected, onSynced, onUploaded, queue, rewriteQueued } from './sync';
 import { uuid } from './uuid';
 
 // Shape version of the cached server data. Bump it when that shape changes:
@@ -510,19 +510,32 @@ function rememberSets(workout) {
   });
 }
 
+// The server's copy replaces the queued change as it leaves the queue (lib/sync.js):
+// from then on the cache is all that shows it, until the next refresh.
+onUploaded('workout', (entry, result) =>
+  workouts.update((list) => {
+    const next = (list ?? []).filter((w) => w.id !== entry.entityId);
+    if (entry.op === 'upsert' && result) next.push(result);
+    return next.sort(byDateDesc);
+  }),
+);
+onUploaded('exercise', (_entry, result) => {
+  if (!result) return;
+  exercises.update((list) => [...new Map([...(list ?? []).map((e) => [e.id, e]), [result.id, result]]).values()]);
+});
+onUploaded('bodyWeight', (entry, result) =>
+  bodyWeights.update((list) => {
+    const next = (list ?? []).filter((e) => e.id !== entry.entityId);
+    if (entry.op !== 'delete' && result) next.push(result);
+    return next.sort((a, b) => Date.parse(b.measured_at) - Date.parse(a.measured_at));
+  }),
+);
+
 onSynced(async (results) => {
   const synced = (type) => results.filter((r) => r.entry.type === type);
   const done = synced('workout');
   const refreshing = [];
   if (done.length) {
-    workouts.update((list) => {
-      let next = list ?? [];
-      for (const { entry, result } of done) {
-        next = next.filter((w) => w.id !== entry.entityId);
-        if (entry.op === 'upsert' && result) next.push(result);
-      }
-      return next.sort(byDateDesc);
-    });
     // The server may have matched an exercise by name to one with another id.
     for (const { entry, result } of done) {
       if (entry.op !== 'upsert' || !result) continue;
@@ -541,29 +554,10 @@ onSynced(async (results) => {
     }
     refreshing.push(summary.refresh());
   }
-  // Put saved exercises in the cache right away: once their queue entry is gone,
-  // the cache is all that shows them until the refresh below returns.
   const savedExercises = synced('exercise').filter((r) => r.result);
-  if (savedExercises.length) {
-    exercises.update((list) => {
-      const byId = new Map((list ?? []).map((e) => [e.id, e]));
-      for (const { result } of savedExercises) byId.set(result.id, result);
-      return [...byId.values()];
-    });
-  }
   if (done.length || savedExercises.length) refreshing.push(exercises.refresh());
 
   const weighIns = synced('bodyWeight');
-  if (weighIns.length) {
-    bodyWeights.update((list) => {
-      const byId = new Map((list ?? []).map((e) => [e.id, e]));
-      for (const { entry, result } of weighIns) {
-        if (entry.op === 'delete') byId.delete(entry.entityId);
-        else if (result) byId.set(result.id, result);
-      }
-      return [...byId.values()].sort((a, b) => Date.parse(b.measured_at) - Date.parse(a.measured_at));
-    });
-  }
   // New XP and titles (and the Workout Complete card waiting for them).
   if (done.length || weighIns.length) refreshing.push(progression.refresh());
   await Promise.all(refreshing);

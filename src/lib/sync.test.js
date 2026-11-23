@@ -145,3 +145,27 @@ describe('body weight', () => {
     expect(server.bodyWeights.size).toBe(0);
   });
 });
+
+describe('uploading', () => {
+  it('never drops a saved thing out of its list on the way to the server', async () => {
+    // A page showing the workout (the Workout Complete card) would be torn
+    // down and built again if it vanished for a moment, even a synchronous one.
+    const { createEffect, createRoot } = await import('solid-js');
+    const workout = squatWorkout(data.ensureExercise('Squat'));
+    const seen = [];
+    const dispose = createRoot((dispose) => {
+      createEffect(() => seen.push(data.workoutList().some((w) => w.id === workout.id)));
+      return dispose;
+    });
+    data.saveWorkout(workout);
+    // Something queued after it: the workout's upload isn't the last one.
+    data.logBodyWeight({ weight: 80, unit: 'kg', measured_at: '2026-11-15T07:00:00.000Z' });
+    await sync.flush();
+    dispose();
+
+    expect(server.workouts.has(workout.id)).toBe(true);
+    expect(sync.outbox()).toEqual([]);
+    expect(seen.slice(seen.indexOf(true))).not.toContain(false);
+    expect(data.workoutList().find((w) => w.id === workout.id).pending).toBeUndefined(); // the server's copy
+  });
+});

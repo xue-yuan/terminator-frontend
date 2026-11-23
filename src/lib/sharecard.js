@@ -268,10 +268,57 @@ function bestSet(item, distanceUnit) {
 }
 
 /**
+ * Big numbers two by two, filling the space from `y` to `bottom`: [{ label, value, unit }].
+ * For the simple workout card, where the numbers are the picture.
+ */
+function grid(ctx, y, bottom, list, colors) {
+  const gap = 20;
+  const w = (W - 2 * PAD - gap) / 2;
+  const rowCount = Math.ceil(list.length / 2);
+  const h = (bottom - y - gap * (rowCount - 1)) / rowCount;
+  list.forEach((s, i) => {
+    const x = PAD + (i % 2) * (w + gap);
+    const top = y + Math.floor(i / 2) * (h + gap);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    roundRect(ctx, x, top, w, h, 40);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = font(700, 28);
+    ctx.letterSpacing = '2px';
+    ctx.fillText(s.label.toUpperCase(), x + 40, top + 72);
+    ctx.letterSpacing = '0px';
+    let size = 124;
+    ctx.font = font(600, 40);
+    const uw = s.unit ? ctx.measureText(` ${s.unit}`).width : 0;
+    ctx.font = font(700, size, ROUNDED);
+    while (size > 48 && ctx.measureText(String(s.value)).width + uw > w - 80) {
+      size -= 4;
+      ctx.font = font(700, size, ROUNDED);
+    }
+    const base = top + h - 56;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(String(s.value), x + 40, base);
+    if (s.unit) {
+      const vw = ctx.measureText(String(s.value)).width;
+      ctx.font = font(600, 40);
+      ctx.fillStyle = colors.accent2;
+      ctx.fillText(` ${s.unit}`, x + 40 + vw, base);
+    }
+  });
+}
+
+/** The ways a workout can be shared: [style, label] (components/ShareSheet.jsx). */
+export const WORKOUT_CARD_STYLES = [
+  ['detailed', 'Detailed'],
+  ['simple', 'Simple'],
+];
+
+/**
  * A finished workout as a picture (PNG blob).
  * who: { name, title: { title, medal } | null, level }; unit / distanceUnit: for the totals.
+ * style: 'detailed' lists the exercises with their best sets; 'simple' is just the totals, big.
  */
-export async function workoutCard(workout, { who = {}, unit = 'kg', distanceUnit = 'km' } = {}) {
+export async function workoutCard(workout, { who = {}, unit = 'kg', distanceUnit = 'km', style = 'detailed' } = {}) {
   const [c, ctx] = canvas();
   const colors = palette();
   background(ctx, colors, dateFmt.format(new Date(workout.performed_at)));
@@ -286,20 +333,31 @@ export async function workoutCard(workout, { who = {}, unit = 'kg', distanceUnit
   const working = workout.items.flatMap((i) => i.sets.filter((s) => s.kind !== 'warmup').map((s) => ({ s, i })));
   const volume = working.reduce((t, { s, i }) => t + convert(s.weight * s.reps, i.weight_unit ?? 'kg', unit), 0);
   const distance = working.reduce((m, { s }) => m + (s.distance_m ?? 0), 0);
-  y = stats(
-    ctx,
-    y + 60,
-    [
-      { label: 'Time', value: formatDuration(workout.duration_seconds) ?? '–' },
-      { label: 'Sets', value: working.length },
-      volume > 0 || !distance
-        ? { label: 'Volume', value: formatNumber(volume), unit }
-        : { label: 'Distance', value: formatDistance(distance, distanceUnit) },
-    ],
-    colors,
-  );
-
+  const time = { label: 'Time', value: formatDuration(workout.duration_seconds) ?? '–' };
+  const sets = { label: 'Sets', value: working.length };
+  const load =
+    volume > 0 || !distance
+      ? { label: 'Volume', value: formatNumber(volume), unit }
+      : { label: 'Distance', value: formatDistance(distance, distanceUnit) };
   const prs = working.filter(({ s }) => s.pr?.length).length;
+
+  if (style === 'simple') {
+    // Down to the banner (or, without one, the footer line), with the same gap above it.
+    const exercises = workout.items.filter((item) => item.sets.length).length;
+    grid(
+      ctx,
+      y + 60,
+      prs ? H - PAD - 104 - 60 : H - PAD - 90,
+      [time, load, sets, { label: exercises === 1 ? 'Exercise' : 'Exercises', value: exercises }],
+      colors,
+    );
+    if (prs) banner(ctx, prs === 1 ? 'New personal record' : `${prs} new personal records`, colors);
+    else footer(ctx);
+    return toBlob(c);
+  }
+
+  y = stats(ctx, y + 60, [time, sets, load], colors);
+
   label(ctx, y + 92, 'Exercises');
   rows(
     ctx,

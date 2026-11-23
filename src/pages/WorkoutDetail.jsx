@@ -34,7 +34,7 @@ import { levelProgress } from '../lib/achievements';
 import { Badge, XpBar } from '../components/Achievement';
 import { totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
 import { fileDate } from '../lib/download';
-import { workoutCard } from '../lib/sharecard';
+import { WORKOUT_CARD_STYLES, workoutCard } from '../lib/sharecard';
 import ShareSheet, { sharer } from '../components/ShareSheet';
 
 const prCount = (w) => w.items.reduce((n, item) => n + item.sets.filter((s) => s.pr?.length).length, 0);
@@ -336,7 +336,8 @@ export default function WorkoutDetail() {
           title="Share Workout"
           filename={`workout-${fileDate(new Date(w().performed_at))}.png`}
           alt={`${w().name || 'Workout'}: a picture to share`}
-          make={() => workoutCard(w(), { who: sharer(), unit: unit(), distanceUnit: distanceUnit() })}
+          styles={WORKOUT_CARD_STYLES}
+          make={(style) => workoutCard(w(), { who: sharer(), unit: unit(), distanceUnit: distanceUnit(), style })}
         />
       </Show>
 

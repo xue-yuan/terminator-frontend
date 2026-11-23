@@ -41,3 +41,6 @@ const dayIso = (d) =>
 export const [recapSeen, saveRecapSeen] = pref('recapSeen', {});
 export const setRecapSeen = (period, start) => saveRecapSeen({ ...recapSeen(), [period]: dayIso(new Date(start)) });
 export const recapWasSeen = (period, start) => recapSeen()?.[period] === dayIso(new Date(start));
+
+/** The kind of picture last picked in the share sheet (lib/sharecard.js WORKOUT_CARD_STYLES). */
+export const [shareStyle, setShareStyle] = pref('shareStyle', 'detailed');
