@@ -10,6 +10,8 @@ export const MEDALS = ['bronze', 'silver', 'gold', 'platinum', 'special'];
 
 /** A title given by hand to one person rather than earned (the server only lists it to them). */
 export const isGranted = (achievement) => achievement.metric === 'granted';
+/** A community title: earned by reaching the community's goals together, worn in a slot of its own. */
+export const isCommunity = (achievement) => achievement.category === 'community';
 
 /** "<achievement>:<target>", as the server names a title (1 not 1.0, 1000000 not 1e6). */
 export const titleKey = (achievement, tier) => `${achievement.id}:${Number(tier.target)}`;
@@ -63,13 +65,25 @@ export function workoutXp(workout, rules, { streak = 0, firstThisWeek = false } 
   );
 }
 
-/** Where an achievement stands, in words: "37 / 50", "6.2 / 10 t", "×0.9 / ×1.0". */
+/** Where an achievement stands, in words: "37 / 50", "6.2 / 10 t", "×0.9 / ×1.0", "42 / 100 km". */
 export function describeProgress(a, target) {
   const value = a.value;
-  if (a.metric === 'total_volume_kg' || a.metric === 'max_workout_volume_kg') {
+  if (a.metric === 'team_distance_m') {
+    const km = (m) => (m >= 100_000 ? Math.round(m / 1000) : Math.round(m / 100) / 10).toLocaleString('en');
+    return `${km(value)} / ${km(target)} km`;
+  }
+  if (a.metric === 'total_volume_kg' || a.metric === 'max_workout_volume_kg' || a.metric === 'team_volume_kg') {
     const t = (kg) => (kg >= 100_000 ? Math.round(kg / 1000) : Math.round(kg / 100) / 10).toLocaleString('en');
     return `${t(value)} / ${t(target)} t`;
   }
   if (a.metric === 'bodyweight_ratio') return `×${value.toFixed(2)} / ×${Number(target).toFixed(1)}`;
   return `${Math.floor(value).toLocaleString('en')} / ${Number(target).toLocaleString('en')}`;
+}
+
+/** Your part of a community total, in words ("yours: 40", "yours: 1.2 t"), or null for anything else. */
+export function describeOwn(a) {
+  if (a.own == null) return null;
+  if (a.metric === 'team_volume_kg') return `yours: ${(Math.round(a.own / 100) / 10).toLocaleString('en')} t`;
+  if (a.metric === 'team_distance_m') return `yours: ${(Math.round(a.own / 100) / 10).toLocaleString('en')} km`;
+  return `yours: ${Math.floor(a.own).toLocaleString('en')}`;
 }

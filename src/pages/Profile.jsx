@@ -44,7 +44,7 @@ import { setTheme, theme } from '../lib/theme';
 import { toast } from '../lib/toast';
 import { BUILD, checkForUpdate } from '../lib/updates';
 import { wakeLockSupported } from '../lib/wakelock';
-import { Badge, XpBar } from '../components/Achievement';
+import { Badge, CommunityTag, XpBar } from '../components/Achievement';
 import DataTransfer from '../components/DataTransfer';
 import { SwipeRow } from '../components/SwipeRow';
 import ThemePicker from '../components/ThemePicker';
@@ -130,7 +130,10 @@ export default function Profile() {
             {initials(user()?.full_name)}
           </span>
           <span class="min-w-0 flex-1">
-            <span class="t-title3 block truncate">{user()?.full_name || 'You'}</span>
+            <span class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span class="t-title3 max-w-full truncate">{user()?.full_name || 'You'}</span>
+              <Show when={progression.data()?.community_title}>{(t) => <CommunityTag title={t()} />}</Show>
+            </span>
             <Show when={progression.data()?.title}>
               {(title) => (
                 <span class="t-sub flex items-center gap-1.5 truncate font-medium">
@@ -224,14 +227,14 @@ export default function Profile() {
           <span class="row-icon bg-[#34c759]">
             <Scale size={18} />
           </span>
-          <span class="flex-1">Weight &amp; Body Fat</span>
-          <span class="row-value t-sub">
+          <span class="shrink-0">Weight &amp; Body Fat</span>
+          <span class="row-value t-sub min-w-0 flex-1 truncate text-right">
             <Show when={bodyWeightList()[0]}>
               {(last) =>
                 [
                   `${formatWeight(last().weight)} ${last().unit}`,
-                  last().body_fat != null ? `${Math.round(last().body_fat * 10) / 10}%` : null,
-                  timeAgo(last().measured_at),
+                  // With body fat there's no room for when as well.
+                  last().body_fat != null ? `${Math.round(last().body_fat * 10) / 10}%` : timeAgo(last().measured_at),
                 ]
                   .filter(Boolean)
                   .join(' · ')

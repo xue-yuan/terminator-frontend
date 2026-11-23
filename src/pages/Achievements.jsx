@@ -2,7 +2,9 @@ import { createMemo, createSignal, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import { Check, ChevronRight, WifiOff } from 'lucide-solid';
 import {
+  describeOwn,
   describeProgress,
+  isCommunity,
   levelProgress,
   MEDALS,
   nextTier,
@@ -11,7 +13,7 @@ import {
   unlockedTiers,
   unlocks,
 } from '../lib/achievements';
-import { progression, refreshAll, wearTitle } from '../lib/data';
+import { progression, refreshAll, wearCommunityTitle, wearTitle } from '../lib/data';
 import { formatDay } from '../lib/format';
 import { toast } from '../lib/toast';
 import { Badge, XpBar } from '../components/Achievement';
@@ -22,7 +24,8 @@ export default function Achievements() {
   refreshAll(); // a cheap check for anything new
   const p = () => progression.data();
   const [openId, setOpenId] = createSignal(null);
-  const [picking, setPicking] = createSignal(false);
+  // Which slot is being picked for: 'title' | 'community' | null.
+  const [picking, setPicking] = createSignal(null);
   const opened = () => p()?.achievements.find((a) => a.id === openId()) ?? null;
   const titles = () => p()?.achievements.reduce((n, a) => n + a.tiers.length, 0) ?? 0;
 
@@ -47,10 +50,21 @@ export default function Achievements() {
       >
         <LevelCard progress={p()} />
 
-        <Section class="mt-2" title="Title">
-          <button type="button" class="row row-tap" onClick={() => setPicking(true)}>
-            <span class="flex-1">Shown under your name</span>
+        <Section class="mt-2" title="Titles">
+          <button type="button" class="row row-tap" onClick={() => setPicking('title')}>
+            <span class="flex-1">
+              Title
+              <span class="t-foot block text-label-2">Under your name</span>
+            </span>
             <span class="row-value t-sub">{p().title?.title ?? 'None'}</span>
+            <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+          </button>
+          <button type="button" class="row row-tap" onClick={() => setPicking('community')}>
+            <span class="flex-1">
+              Community Title
+              <span class="t-foot block text-label-2">Next to your name, earned together</span>
+            </span>
+            <span class="row-value t-sub">{p().community_title?.title ?? 'None'}</span>
             <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
           </button>
         </Section>
@@ -64,6 +78,12 @@ export default function Achievements() {
                 <div class="card grid grid-cols-3 gap-y-5 px-1 py-4">
                   <For each={list()}>{(a) => <BadgeCell achievement={a} onOpen={() => setOpenId(a.id)} />}</For>
                 </div>
+                <Show when={category.id === 'community'}>
+                  <p class="group-footer">
+                    Earned together: reach the community’s weekly goal, or add your part to what everyone does. Worn
+                    next to your name, apart from your title.
+                  </p>
+                </Show>
               </Show>
             );
           }}
@@ -75,7 +95,12 @@ export default function Achievements() {
       </Show>
 
       <AchievementSheet achievement={opened()} progress={p()} onClose={() => setOpenId(null)} />
-      <TitleSheet open={picking()} progress={p()} onClose={() => setPicking(false)} />
+      <TitleSheet
+        open={!!picking()}
+        community={picking() === 'community'}
+        progress={p()}
+        onClose={() => setPicking(null)}
+      />
     </>
   );
 }
@@ -136,10 +161,11 @@ function BadgeCell(props) {
 function AchievementSheet(props) {
   const a = () => props.achievement;
   const [busy, setBusy] = createSignal(null);
+  const community = () => !!a() && isCommunity(a());
   const wear = async (key) => {
     setBusy(key);
     try {
-      await wearTitle(key);
+      await (community() ? wearCommunityTitle : wearTitle)(key);
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -160,7 +186,8 @@ function AchievementSheet(props) {
             <For each={a().tiers}>
               {(tier) => {
                 const key = () => titleKey(a(), tier);
-                const wearing = () => props.progress?.title?.key === key();
+                const wearing = () =>
+                  (community() ? props.progress?.community_title : props.progress?.title)?.key === key();
                 return (
                   <div class="row !items-start !py-3" style={{ '--sep-inset': '4rem' }}>
                     <Badge medal={tier.unlocked_at ? tier.medal : null} icon={a().icon} size={36} />
@@ -172,7 +199,12 @@ function AchievementSheet(props) {
                       <p class="t-foot mt-0.5">
                         <Show
                           when={tier.unlocked_at}
-                          fallback={<span class="num text-label-2">{describeProgress(a(), tier.target)}</span>}
+                          fallback={
+                            <span class="num text-label-2">
+                              {describeProgress(a(), tier.target)}
+                              <Show when={describeOwn(a())}>{(own) => ` · ${own()}`}</Show>
+                            </span>
+                          }
                         >
                           <Show
                             when={tier.workout_id}
@@ -212,21 +244,24 @@ function AchievementSheet(props) {
   );
 }
 
-/** Pick the title shown under your name, from the ones you've unlocked (best first). */
+/**
+ * Pick the title shown under your name, or (`community`) the community title
+ * next to it, from the ones you've unlocked (best first). Each slot takes only its own kind.
+ */
 function TitleSheet(props) {
   const [busy, setBusy] = createSignal(null);
   const rank = (u) => MEDALS.indexOf(u.tier.medal);
   const owned = createMemo(() =>
     unlocks(props.progress)
-      .slice()
+      .filter((u) => isCommunity(u.achievement) === !!props.community)
       .sort((x, y) => rank(y) - rank(x) || Date.parse(y.tier.unlocked_at) - Date.parse(x.tier.unlocked_at)),
   );
-  const current = () => props.progress?.title?.key ?? null;
+  const current = () => (props.community ? props.progress?.community_title : props.progress?.title)?.key ?? null;
   const pick = async (key) => {
     if (key === current()) return props.onClose();
     setBusy(key ?? 'none');
     try {
-      await wearTitle(key);
+      await (props.community ? wearCommunityTitle : wearTitle)(key);
       props.onClose();
     } catch (err) {
       toast(err.message, 'error');
@@ -247,7 +282,7 @@ function TitleSheet(props) {
     </Show>
   );
   return (
-    <Sheet open={props.open} onClose={() => props.onClose()} title="Title">
+    <Sheet open={props.open} onClose={() => props.onClose()} title={props.community ? 'Community Title' : 'Title'}>
       <div class="group">
         <button type="button" class="row row-tap" disabled={!!busy()} onClick={() => pick(null)}>
           <span class="flex-1">None</span>
@@ -273,7 +308,11 @@ function TitleSheet(props) {
         </For>
       </div>
       <Show when={!owned().length}>
-        <p class="group-footer">Unlock an achievement to earn your first title.</p>
+        <p class="group-footer">
+          {props.community
+            ? 'Reach a community goal together to earn your first community title.'
+            : 'Unlock an achievement to earn your first title.'}
+        </p>
       </Show>
     </Sheet>
   );

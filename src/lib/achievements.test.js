@@ -75,3 +75,15 @@ describe('tiers and titles', () => {
     expect(describeProgress({ metric: 'working_sets', value: 1234 }, 2000)).toBe('1,234 / 2,000');
   });
 });
+
+describe('community titles', () => {
+  it('describe totals together, and your part', async () => {
+    const { describeOwn } = await import('./achievements');
+    expect(describeProgress({ metric: 'team_distance_m', value: 42_300 }, 100_000)).toBe('42.3 / 100 km');
+    expect(describeProgress({ metric: 'team_volume_kg', value: 62_400 }, 100_000)).toBe('62.4 / 100 t');
+    expect(describeProgress({ metric: 'team_sets', value: 820 }, 2000)).toBe('820 / 2,000');
+    expect(describeOwn({ metric: 'team_sets', own: 40 })).toBe('yours: 40');
+    expect(describeOwn({ metric: 'team_volume_kg', own: 1234 })).toBe('yours: 1.2 t');
+    expect(describeOwn({ metric: 'workouts', value: 3 })).toBe(null);
+  });
+});

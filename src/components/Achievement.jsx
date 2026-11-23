@@ -134,3 +134,13 @@ export function XpBar(props) {
     </span>
   );
 }
+
+/** A community title, worn next to a name: a small tag with its medal. */
+export function CommunityTag(props) {
+  return (
+    <span class="pill inline-flex max-w-full min-w-0 shrink items-center gap-1" title="Community title">
+      <Badge medal={props.title.medal} icon="shield" size={14} />
+      <span class="truncate">{props.title.title}</span>
+    </span>
+  );
+}

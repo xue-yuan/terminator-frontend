@@ -1,6 +1,7 @@
 import { createMemo, createRoot, createSignal } from 'solid-js';
 import { api, OfflineError } from './api';
 import { importBatches } from './backup';
+import { checkHighFives } from './highfives';
 import { updateUser } from './auth';
 import { refreshSpotifyStatus } from './spotify';
 import { exerciseKey } from './exercises';
@@ -163,6 +164,11 @@ const FETCH = {
   spotify: async () => {
     await refreshSpotifyStatus();
     return true;
+  },
+  // Who's here, this week's shared goal, the feed, and high-fives on your workouts.
+  community: async () => {
+    await Promise.all([community.refresh(), teamGoal.refresh(), feed.refresh(), checkHighFives().catch(() => {})]);
+    return !community.error() && !teamGoal.error() && !feed.error();
   },
   user: () =>
     api('/users/me')
@@ -668,8 +674,29 @@ export async function fetchRecap(period, day) {
   return recap;
 }
 
-/** Everyone who uses the app, by name: [{ id, name, level, title: { key, title, medal } | null, you }]. */
+/**
+ * Everyone who uses the app, by name:
+ * [{ id, name, level, title: { key, title, medal } | null, community_title: (same) | null, you }].
+ */
 export const community = cachedQuery(documentCache('community'), () => api('/community'));
+/** This week's goal for everyone together: { week_start, week_end, target, total, reached, trained: [player id], weeks_reached, streak }. */
+export const teamGoal = cachedQuery(documentCache('teamGoal'), () => api('/community/goal'));
+/** Who finished a workout, and when, latest first: [{ workout_id, player_id, name, at, you, high_fived, high_fivers }]. */
+export const feed = cachedQuery(documentCache('feed'), () => api('/community/feed'));
+
+/** High-five someone's workout in the feed (or take it back): shown at once, undone if the server says no. */
+export async function highFive(workoutId, on = true) {
+  const mark = (value) =>
+    feed.update((list) => (list ?? []).map((f) => (f.workout_id === workoutId ? { ...f, high_fived: value } : f)));
+  mark(on);
+  try {
+    await api(`/community/feed/${workoutId}/high-five`, { method: on ? 'PUT' : 'DELETE' });
+    adoptFingerprints(['community']);
+  } catch (err) {
+    mark(!on);
+    throw err;
+  }
+}
 
 // ---- backup (needs a connection) ---------------------------------------------------
 
@@ -763,6 +790,16 @@ export async function deactivatePlan() {
 export async function wearTitle(key) {
   const title = await api('/progress/title', { method: 'PUT', body: { title: key } });
   progression.update((p) => p && { ...p, title });
-  adoptFingerprints(['progress']);
+  community.update((list) => list && list.map((p) => (p.you ? { ...p, title } : p)));
+  adoptFingerprints(['progress', 'community']);
+  return title;
+}
+
+/** Wear an unlocked community title next to your name (its own slot), or none (null). */
+export async function wearCommunityTitle(key) {
+  const title = await api('/progress/community-title', { method: 'PUT', body: { title: key } });
+  progression.update((p) => p && { ...p, community_title: title });
+  community.update((list) => list && list.map((p) => (p.you ? { ...p, community_title: title } : p)));
+  adoptFingerprints(['progress', 'community']);
   return title;
 }
