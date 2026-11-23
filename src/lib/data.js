@@ -1,6 +1,7 @@
 import { createMemo, createRoot, createSignal } from 'solid-js';
 import { api, OfflineError } from './api';
 import { importBatches } from './backup';
+import { startOfDay } from './dates';
 import { checkHighFives } from './highfives';
 import { updateUser } from './auth';
 import { refreshSpotifyStatus } from './spotify';
@@ -681,8 +682,10 @@ export async function fetchRecap(period, day) {
 export const community = cachedQuery(documentCache('community'), () => api('/community'));
 /** This week's goal for everyone together: { week_start, week_end, target, total, reached, trained: [player id], weeks_reached, streak }. */
 export const teamGoal = cachedQuery(documentCache('teamGoal'), () => api('/community/goal'));
-/** Who finished a workout, and when, latest first: [{ workout_id, player_id, name, at, you, high_fived, high_fivers }]. */
-export const feed = cachedQuery(documentCache('feed'), () => api('/community/feed'));
+/** Who finished a workout today, and when, latest first: [{ workout_id, player_id, name, at, you, high_fived, high_fivers }]. */
+export const feed = cachedQuery(documentCache('feed'), () =>
+  api(`/community/feed?since=${encodeURIComponent(startOfDay(new Date()).toISOString())}&limit=100`),
+);
 
 /** High-five someone's workout in the feed (or take it back): shown at once, undone if the server says no. */
 export async function highFive(workoutId, on = true) {

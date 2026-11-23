@@ -3,6 +3,13 @@
 // Always step by calendar days (setDate), never by fixed 24 h: a week that
 // contains a daylight-saving change is 167 or 169 hours long.
 
+/** Local midnight starting the day of `date`. */
+export function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 /** Local midnight of the Monday starting the week of `date`. */
 export function startOfWeek(date) {
   const d = new Date(date);

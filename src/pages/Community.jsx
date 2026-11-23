@@ -1,8 +1,8 @@
-import { createMemo, createSignal, For, onMount, Show } from 'solid-js';
+import { createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { Check, Hand, Users } from 'lucide-solid';
 import { OfflineError } from '../lib/api';
 import { community, feed, highFive, refreshAll, teamGoal } from '../lib/data';
-import { addDays } from '../lib/dates';
+import { addDays, startOfDay } from '../lib/dates';
 import { formatDay, formatTime, plural } from '../lib/format';
 import { toast } from '../lib/toast';
 import { Badge, CommunityTag } from '../components/Achievement';
@@ -34,15 +34,6 @@ function Avatar(props) {
       {initials(props.name)}
     </span>
   );
-}
-
-/** "18:30" today, "Yesterday 18:30", else "Mon 23 Nov · 18:30". */
-function when(iso) {
-  const d = new Date(iso);
-  const today = new Date().toDateString();
-  if (d.toDateString() === today) return `Today ${formatTime(iso)}`;
-  if (d.toDateString() === addDays(new Date(), -1).toDateString()) return `Yesterday ${formatTime(iso)}`;
-  return `${formatDay(iso)} · ${formatTime(iso)}`;
 }
 
 /**
@@ -176,9 +167,22 @@ function Goal(props) {
   );
 }
 
-/** Who finished a workout, and when (nothing more about it), with a high-five for each. */
+/** Who finished a workout today, and when (nothing more about it), with a high-five for each. */
 function Feed() {
   const [busy, setBusy] = createSignal(null);
+  // Today only, by this device's clock: what's cached from yesterday goes, and so does
+  // everything when the app comes back after midnight (and fetches the new day's).
+  const [today, setToday] = createSignal(startOfDay(new Date()).getTime());
+  const onVisible = () => {
+    if (document.visibilityState !== 'visible') return;
+    const now = startOfDay(new Date()).getTime();
+    if (now === today()) return;
+    setToday(now);
+    feed.refresh();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+  onCleanup(() => document.removeEventListener('visibilitychange', onVisible));
+  const items = () => (feed.data() ?? []).filter((f) => Date.parse(f.at) >= today());
   const toggle = async (item) => {
     navigator.vibrate?.(8);
     setBusy(item.workout_id);
@@ -191,14 +195,14 @@ function Feed() {
     }
   };
   return (
-    <Section title="Activity">
-      <For each={feed.data() ?? []} fallback={<p class="row t-sub text-label-2">Finished workouts show up here.</p>}>
+    <Section title="Today">
+      <For each={items()} fallback={<p class="row t-sub text-label-2">Workouts finished today show up here.</p>}>
         {(item) => (
           <div class="row" style={{ '--sep-inset': '4.25rem' }}>
             <Avatar id={item.player_id} name={item.name} size={40} />
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{item.you ? 'You' : item.name}</span>
-              <span class="t-foot block truncate text-label-2">Finished a workout · {when(item.at)}</span>
+              <span class="t-foot block truncate text-label-2">Finished a workout · {formatTime(item.at)}</span>
               <Show when={item.you && item.high_fivers.length}>
                 <span class="t-foot flex items-center gap-1 text-accent">
                   <Hand size={13} class="shrink-0" />
