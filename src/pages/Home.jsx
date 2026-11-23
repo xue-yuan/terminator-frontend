@@ -1,12 +1,26 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
-import { A } from '@solidjs/router';
-import { ChevronRight, Dumbbell, Play } from 'lucide-solid';
+import { A, useNavigate } from '@solidjs/router';
+import { BatteryLow, CalendarRange, ChevronRight, Dumbbell, Play, TrendingDown } from 'lucide-solid';
 import { summary, workoutList } from '../lib/data';
-import { describeTarget, formatClock, plural } from '../lib/format';
+import { addDays, startOfWeek } from '../lib/dates';
+import { recapWasSeen } from '../lib/prefs';
+import { openRecapAt } from './Recap';
+import { describeTarget, formatClock, formatDay, plural } from '../lib/format';
 import { useNow } from '../lib/now';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
-import { muscleWeeks, totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
-import { discardWorkout, useStart } from '../components/StartSheet';
+import {
+  currentDeload,
+  deloadSuggestion,
+  endDeload,
+  muscleWeeks,
+  snoozeDeload,
+  startDeload,
+  totalWorkouts,
+  weekStreak,
+  workoutsThisWeek,
+} from '../lib/stats';
+import { toast } from '../lib/toast';
+import { confirmDiscard, useStart } from '../components/StartSheet';
 import { EmptyState, PageHeader, SectionTitle, StatRow } from '../components/ui';
 import ExerciseNumber from '../components/ExerciseNumber';
 import MuscleBars from '../components/MuscleBars';
@@ -40,6 +54,9 @@ export default function Home() {
           ]}
         />
       </div>
+
+      <Deload />
+      <RecapCard />
 
       <Show
         when={draft()}
@@ -119,7 +136,7 @@ function InProgress(props) {
         <button type="button" class="btn btn-lg btn-primary btn-block mt-3" onClick={() => props.onResume()}>
           Resume
         </button>
-        <button type="button" class="btn btn-destructive btn-block mt-1" onClick={discardWorkout}>
+        <button type="button" class="btn btn-destructive btn-block mt-1" onClick={() => confirmDiscard()}>
           {draft().mode === 'edit' ? 'Discard Changes' : 'Discard Workout'}
         </button>
       </div>
@@ -212,3 +229,137 @@ function UpNext(props) {
     </Show>
   );
 }
+
+/** "A, B and C" */
+const listNames = (names) =>
+  names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+
+/**
+ * A deload week: suggested when lifts stall after hard weeks (or after a long
+ * block of them), and a reminder while one is on (lib/deload.js).
+ */
+function Deload() {
+  const advice = createMemo(() => deloadSuggestion());
+  const on = () => currentDeload();
+  const start = () => {
+    startDeload();
+    toast('Deload week started: new workouts go lighter until it ends', 'success');
+  };
+  return (
+    <Show
+      when={on()}
+      fallback={
+        <Show when={advice()}>
+          {(a) => (
+            <div class="card anim-pop mt-3 p-4" role="status">
+              <div class="flex items-start gap-3">
+                <span class="row-icon mt-0.5 shrink-0 bg-accent">
+                  <BatteryLow size={18} />
+                </span>
+                <div class="min-w-0 flex-1">
+                  <p class="t-headline">Time for a deload week?</p>
+                  <p class="t-sub mt-0.5 text-label-2">
+                    <Show
+                      when={a().reason === 'stalled'}
+                      fallback={`You've trained hard for ${a().hardWeeks} weeks straight.`}
+                    >
+                      {listNames(
+                        a()
+                          .stalled.slice(0, 3)
+                          .map((l) => l.name),
+                      )}
+                      {a().stalled.length > 3 ? ` and ${a().stalled.length - 3} more` : ''} haven't gone up in 3
+                      sessions.
+                    </Show>{' '}
+                    A lighter week (90% of your weights, half the sets) lets fatigue clear, so you come back stronger.
+                  </p>
+                </div>
+              </div>
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <button type="button" class="btn btn-gray" onClick={snoozeDeload}>
+                  Not Now
+                </button>
+                <button type="button" class="btn btn-primary" onClick={start}>
+                  Start Deload
+                </button>
+              </div>
+            </div>
+          )}
+        </Show>
+      }
+    >
+      <div class="card mt-3 flex items-center gap-3 px-4 py-3">
+        <span class="row-icon shrink-0 bg-accent">
+          <TrendingDown size={18} />
+        </span>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold">Deload week</p>
+          <p class="t-foot text-label-2">Until {formatDay(on().end)}: 90% of your weights, half the sets.</p>
+        </div>
+        <button type="button" class="btn btn-sm btn-gray shrink-0" onClick={endDeload}>
+          End
+        </button>
+      </div>
+    </Show>
+  );
+}
+
+/**
+ * At the start of a week (Monday to Wednesday), last week in brief, until its
+ * recap is opened; on the first three days of a month, last month's.
+ */
+function RecapCard() {
+  const navigate = useNavigate();
+  const due = createMemo(() => {
+    const now = new Date();
+    const week = startOfWeek(now);
+    const candidates = [];
+    if ((now.getDay() + 6) % 7 <= 2) candidates.push({ period: 'week', start: addDays(week, -7), end: week });
+    if (now.getDate() <= 3) {
+      candidates.push({
+        period: 'month',
+        start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        end: new Date(now.getFullYear(), now.getMonth(), 1),
+      });
+    }
+    for (const c of candidates.reverse()) {
+      if (recapWasSeen(c.period, c.start)) continue;
+      const done = workoutList().filter((w) => {
+        const t = Date.parse(w.performed_at);
+        return t >= c.start.getTime() && t < c.end.getTime();
+      });
+      if (done.length) return { ...c, workouts: done.length, sets: done.reduce((n, w) => n + setCountOf(w), 0) };
+    }
+    return null;
+  });
+  const open = () => {
+    openRecapAt(due().period, due().start);
+    navigate('/recap');
+  };
+  return (
+    <Show when={due()}>
+      {(d) => (
+        <button
+          type="button"
+          class="card anim-pop mt-3 flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-70"
+          onClick={open}
+        >
+          <span class="row-icon shrink-0 bg-[#ff9500]">
+            <CalendarRange size={18} />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-semibold">
+              {d().period === 'week' ? 'Your Week in Review' : 'Your Month in Review'}
+            </span>
+            <span class="t-foot block truncate text-label-2">
+              {plural(d().workouts, 'workout')} · {plural(d().sets, 'set')}
+            </span>
+          </span>
+          <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+        </button>
+      )}
+    </Show>
+  );
+}
+
+const setCountOf = (w) => w.items.reduce((n, item) => n + item.sets.filter((s) => s.kind !== 'warmup').length, 0);

@@ -222,7 +222,7 @@ async function adoptFingerprints(kinds) {
 // ---- derived views (server data with unsynced local changes on top) ----------
 
 /** What PUT /exercises/{id} takes. */
-const SETTINGS = ['name', 'muscle_group', 'notes', 'rep_min', 'rep_max', 'increment', 'rest_seconds'];
+const SETTINGS = ['name', 'muscle_group', 'log_type', 'notes', 'rep_min', 'rep_max', 'increment', 'rest_seconds'];
 const settingsOf = (exercise) => Object.fromEntries(SETTINGS.map((k) => [k, exercise?.[k] ?? null]));
 const NO_STATS = {
   times_performed: 0,
@@ -232,6 +232,8 @@ const NO_STATS = {
   best_weight: null,
   best_e1rm: null,
   best_reps: null,
+  best_duration: null,
+  best_distance: null,
 };
 
 const derived = createRoot(() => {
@@ -378,6 +380,8 @@ export function queuedSetsOf(exerciseId, exceptWorkoutId) {
   return out;
 }
 
+/** What a set of an exercise is ('reps' | 'time' | 'cardio'): its own, else the library's for that name, else weight × reps. */
+export const logTypeOf = (exercise) => exercise?.log_type ?? catalogEntry(exercise?.name)?.log_type ?? 'reps';
 /** Muscle group of an exercise: its own, else the library's for that name. */
 export const muscleOf = (exercise) => exercise?.muscle_group ?? catalogEntry(exercise?.name)?.muscle_group ?? null;
 /** Id of the exercise a logged item is of (items queued by older versions only have its name). */
@@ -385,15 +389,20 @@ export const itemExerciseId = (item) => item.exercise_id ?? exerciseByName(item.
 
 // ---- exercises -------------------------------------------------------------------
 
-/** Your exercise called `name`; created (works offline) if there's none yet. Returns its id. */
-export function ensureExercise(name) {
+/**
+ * Your exercise called `name`; created (works offline) if there's none yet,
+ * with `log_type` when it differs from the library's. Returns its id.
+ */
+export function ensureExercise(name, { log_type = null } = {}) {
   const existing = exerciseByName(name);
   if (existing) return existing.id;
   const id = uuid();
+  const library = catalogEntry(name);
   queue('exercise', id, 'upsert', {
     ...settingsOf(null),
     name: name.trim(),
-    muscle_group: catalogEntry(name)?.muscle_group ?? null,
+    muscle_group: library?.muscle_group ?? null,
+    log_type: log_type && log_type !== (library?.log_type ?? 'reps') ? log_type : null,
   });
   return id;
 }
@@ -447,8 +456,8 @@ onRejected('exercise', (entry, err) => {
 
 // ---- body weight (works offline) ---------------------------------------------------
 
-export function logBodyWeight({ id = uuid(), weight, unit, measured_at = new Date().toISOString() }) {
-  queue('bodyWeight', id, 'upsert', { measured_at, weight, unit });
+export function logBodyWeight({ id = uuid(), weight, unit, body_fat = null, measured_at = new Date().toISOString() }) {
+  queue('bodyWeight', id, 'upsert', { measured_at, weight, unit, body_fat });
 }
 
 export function deleteBodyWeight(id) {
@@ -637,6 +646,30 @@ export function exerciseSessions(exerciseId) {
   ).map((s) => ({ ...s, pending: true }));
   return [...base.filter((s) => !queuedIds.has(s.workout_id)), ...local].sort(byDateAsc);
 }
+
+// ---- recap and community (need a connection; the last answer stays cached) ----------
+
+/**
+ * A week's or month's training in review (GET /recap). `day`: any day in it.
+ * The copy fetched last shows meanwhile (and offline).
+ */
+export function recapKey(period, day) {
+  const d = new Date(day);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${period}:${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+export const cachedRecap = (period, day) => load(`cache:recap:${recapKey(period, day)}`);
+export async function fetchRecap(period, day) {
+  const key = recapKey(period, day);
+  const recap = await api(
+    `/recap?period=${period}&day=${key.slice(period.length + 1)}&tz=${encodeURIComponent(timeZone)}`,
+  );
+  save(`cache:recap:${key}`, recap);
+  return recap;
+}
+
+/** Everyone who uses the app, by name: [{ id, name, level, title: { key, title, medal } | null, you }]. */
+export const community = cachedQuery(documentCache('community'), () => api('/community'));
 
 // ---- backup (needs a connection) ---------------------------------------------------
 

@@ -10,7 +10,7 @@ import { useNow } from '../lib/now';
 import { restProgress, restRemaining } from '../lib/rest';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
 import { applyUpdate, dismissUpdate, needRefresh } from '../lib/updates';
-import { discardWorkout, StartSheet, useStart } from './StartSheet';
+import { confirmDiscard, DiscardSheet, StartSheet, useStart } from './StartSheet';
 import { SwipeRow } from './SwipeRow';
 
 const FULLSCREEN = /^\/(session|plans\/new|plans\/\d+\/edit)\/?$/;
@@ -69,6 +69,7 @@ export default function AppLayout(props) {
         </div>
       </Show>
       <StartSheet />
+      <DiscardSheet />
     </div>
   );
 }
@@ -140,7 +141,7 @@ function TabBar() {
  */
 function MiniPlayer() {
   const { resume } = useStart();
-  // Swipe it left to throw the workout away (with Undo), like a notification.
+  // Swipe it left to throw the workout away (after asking), like a notification.
   const now = useNow(1000);
   const resting = () => restRemaining() != null;
   const editing = () => draft().mode === 'edit';
@@ -154,7 +155,7 @@ function MiniPlayer() {
               label: 'Discard',
               icon: Trash2,
               tone: 'bad',
-              onAction: discardWorkout,
+              onAction: () => confirmDiscard(),
             },
           ]}
         >

@@ -11,11 +11,14 @@ import {
   Minus,
   Plus,
   Search,
+  Timer,
   Trash2,
+  TrendingDown,
   TrendingUp,
   Trophy,
   Undo2,
   Unlink2,
+  X,
 } from 'lucide-solid';
 import {
   catalog,
@@ -29,7 +32,7 @@ import {
 import { levelFor, workoutXp } from '../lib/achievements';
 import { startOfWeek } from '../lib/dates';
 import { weekStreak } from '../lib/stats';
-import { exerciseKey, POPULAR } from '../lib/exercises';
+import { exerciseKey, LOG_TYPES, POPULAR } from '../lib/exercises';
 import {
   describeSets,
   formatClock,
@@ -46,11 +49,11 @@ import {
 import { enter, riseIn, slideAway } from '../lib/motion';
 import { useBack } from '../lib/nav';
 import { useNow } from '../lib/now';
-import { celebrate, unit as displayUnit, keepAwake, restSound } from '../lib/prefs';
-import { primeSound } from '../lib/sound';
+import { celebrate, unit as displayUnit, keepAwake, restSound, setDistanceUnit } from '../lib/prefs';
+import { chime, primeSound } from '../lib/sound';
 import { celebrateFinish, prepareCelebration } from '../lib/celebrate';
 import { restProgress, restRemaining } from '../lib/rest';
-import { convert, UNITS } from '../lib/units';
+import { convert, DISTANCE_UNITS, UNITS } from '../lib/units';
 import {
   addExercise,
   addSet,
@@ -59,6 +62,7 @@ import {
   anySetLogged,
   adjustRest,
   applyHistoryHints,
+  cancelStopwatch,
   closeEditor,
   completedSetCount,
   discardDraft,
@@ -81,10 +85,17 @@ import {
   removeSet,
   restoreExercise,
   restoreSet,
+  setExerciseDistanceUnit,
+  setExerciseType,
   setExerciseUnit,
+  startStopwatch,
   startWorkout,
   stepField,
   stopRest,
+  stopStopwatch,
+  stopwatchFor,
+  stopwatchSeconds,
+  timeStepFor,
   toggleWarmup,
   undoSet,
   unlink,
@@ -95,7 +106,7 @@ import { describeRecords } from '../lib/records';
 import { toast, undoable } from '../lib/toast';
 import { useWakeLock } from '../lib/wakelock';
 import { PrTag, Segmented, Sheet, Switch } from '../components/ui';
-import { discardWorkout } from '../components/StartSheet';
+import { confirmDiscard, discardWorkout } from '../components/StartSheet';
 import { SwipeRow } from '../components/SwipeRow';
 import ExerciseNameInput from '../components/ExerciseNameInput';
 import SpotifyBar from '../components/SpotifyBar';
@@ -244,13 +255,15 @@ export default function Session() {
     leave(() => navigate(`/workouts/${workout.id}`, { replace: true }));
   };
 
-  // No confirmation: it goes right away, with Undo in the toast.
+  // Asked first ("Discard Workout?"); then it goes, with Undo in the toast.
   const discard = () => {
     setSheet(null);
-    leave(() => {
-      discardWorkout();
-      navigate('/', { replace: true });
-    });
+    confirmDiscard(() =>
+      leave(() => {
+        discardWorkout();
+        navigate('/', { replace: true });
+      }),
+    );
   };
 
   const focusedIndex = () => Math.min(draft().focus.ex, draft().exercises.length - 1);
@@ -628,7 +641,7 @@ function FocusedExercise(props) {
         <Show when={last()}>
           <p class="t-sub mt-1 text-label-2">
             Last time, {timeAgo(last().last_performed_at)}:{' '}
-            <span class="text-label">{describeSets(last().last_sets, last().last_unit)}</span>
+            <span class="text-label">{describeSets(last().last_sets, last().last_unit, ex().distanceUnit)}</span>
           </p>
         </Show>
         <Show when={draft().mode === 'new' && ex().suggestion}>
@@ -643,6 +656,15 @@ function FocusedExercise(props) {
               </span>
             </p>
           )}
+        </Show>
+        <Show when={draft().mode === 'new' && ex().deload}>
+          <p class="t-sub mt-2.5 flex items-start gap-2 rounded-xl bg-accent-soft px-3 py-2">
+            <TrendingDown size={17} class="mt-0.5 shrink-0 text-accent" />
+            <span>
+              <b class="font-semibold">Deload week:</b> 90% of last time's weights, half the sets. Leave some reps in
+              the tank.
+            </span>
+          </p>
         </Show>
         <Show when={saved()?.notes}>
           <p class="t-sub mt-2.5 rounded-xl bg-card px-3 py-2 whitespace-pre-wrap text-label-2">{saved().notes}</p>
@@ -717,8 +739,10 @@ function FocusedExercise(props) {
   );
 }
 
-/** "60 kg × 8", or "12 reps" for bodyweight. */
-function describeCopy({ weight, reps, unit }) {
+/** "60 kg × 8", "12 reps" for bodyweight, "1:30" for a hold, "5 km · 25:00" for cardio. */
+function describeCopy({ type, weight, reps, time, distance, unit, distanceUnit: dUnit }) {
+  if (type === 'time') return time;
+  if (type === 'cardio') return [distance && `${distance} ${dUnit}`, time].filter(Boolean).join(' · ');
   const w = parseNumber(weight);
   return w > 0 ? `${formatWeight(w)} ${unit} × ${reps}` : plural(reps, 'rep');
 }
@@ -737,9 +761,11 @@ function log(i, j) {
   const logged = ex.sets[j];
   if (logged.pr.length) {
     const what =
-      logged.weight > 0
-        ? `${formatWeight(parseNumber(logged.weight))} ${ex.unit} × ${logged.reps}`
-        : plural(logged.reps, 'rep');
+      ex.type === 'time' || ex.type === 'cardio'
+        ? describeCopy({ ...logged, type: ex.type, distanceUnit: ex.distanceUnit })
+        : logged.weight > 0
+          ? `${formatWeight(parseNumber(logged.weight))} ${ex.unit} × ${logged.reps}`
+          : plural(logged.reps, 'rep');
     toast(`New PR · ${ex.name} ${what} (${describeRecords(logged.pr)})`, 'pr');
     navigator.vibrate?.([30, 60, 30]);
   }
@@ -767,9 +793,9 @@ function SetBadge(props) {
 
 function SetRow(props) {
   const set = () => props.set;
-  const weight = () => effectiveValue(props.ex, set(), 'weight');
-  const reps = () => effectiveValue(props.ex, set(), 'reps');
-  const suggested = () => !set().done && !set().weight && !set().reps;
+  const value = (field) => effectiveValue(props.ex, set(), field);
+  const suggested = () => !set().done && !set().weight && !set().reps && !set().time && !set().distance;
+  const big = () => ({ 'text-[20px] font-semibold': true, '!text-[17px]': isWarmup(set()) });
   return (
     <div role="listitem" class="flex items-center bg-card">
       <button type="button" class="row row-tap min-w-0 flex-1 !pr-2" onClick={() => props.onOpen()}>
@@ -778,13 +804,24 @@ function SetRow(props) {
           class="num min-w-0 flex-1 truncate"
           classList={{ 'text-label-3': suggested(), 'text-[15px]': isWarmup(set()) }}
         >
-          <span class="text-[20px] font-semibold" classList={{ '!text-[17px]': isWarmup(set()) }}>
-            {weight() === '' ? '–' : formatLoad(parseNumber(weight()))}
-          </span>
-          <span class="mx-1 text-[15px] text-label-2">{parseNumber(weight()) === 0 ? '×' : `${props.ex.unit} ×`}</span>
-          <span class="text-[20px] font-semibold" classList={{ '!text-[17px]': isWarmup(set()) }}>
-            {reps() || '–'}
-          </span>
+          <Show
+            when={props.ex.type === 'time' || props.ex.type === 'cardio'}
+            fallback={
+              <>
+                <span classList={big()}>{value('weight') === '' ? '–' : formatLoad(parseNumber(value('weight')))}</span>
+                <span class="mx-1 text-[15px] text-label-2">
+                  {parseNumber(value('weight')) === 0 ? '×' : `${props.ex.unit} ×`}
+                </span>
+                <span classList={big()}>{value('reps') || '–'}</span>
+              </>
+            }
+          >
+            <Show when={props.ex.type === 'cardio'}>
+              <span classList={big()}>{value('distance') || '–'}</span>
+              <span class="mx-1 text-[15px] text-label-2">{props.ex.distanceUnit} ·</span>
+            </Show>
+            <span classList={big()}>{value('time') || '–'}</span>
+          </Show>
         </span>
         <Show when={set().rpe}>
           <span class="pill">RPE {set().rpe}</span>
@@ -818,6 +855,7 @@ function Stepper(props) {
   const bodyweight = () => isBW(effectiveValue(draft().exercises[props.i], props.set, props.field));
   const placeholder = () => {
     if (isBW(hint())) return 'BW';
+    if (props.field === 'time') return hint() || '–';
     const n = parseNumber(hint());
     return Number.isFinite(n) ? formatWeight(n) : '–'; // nothing to log yet
   };
@@ -851,7 +889,7 @@ function Stepper(props) {
         <button
           type="button"
           class={button}
-          aria-label={`Decrease ${props.label.toLowerCase()} by ${props.step}`}
+          aria-label={`Decrease ${props.label.toLowerCase()} by ${props.stepLabel ?? props.step}`}
           onClick={() => {
             buzz();
             stepField(props.i, props.j, props.field, -props.step);
@@ -873,7 +911,7 @@ function Stepper(props) {
               'sets',
               props.j,
               props.field,
-              e.currentTarget.value.replace(/[^\d.,]/g, ''),
+              e.currentTarget.value.replace(props.field === 'time' ? /[^\d.,:]/g : /[^\d.,]/g, ''),
             )
           }
           onFocus={(e) => e.currentTarget.select()}
@@ -881,7 +919,7 @@ function Stepper(props) {
         <button
           type="button"
           class={button}
-          aria-label={`Increase ${props.label.toLowerCase()} by ${props.step}`}
+          aria-label={`Increase ${props.label.toLowerCase()} by ${props.stepLabel ?? props.step}`}
           onClick={() => {
             buzz();
             stepField(props.i, props.j, props.field, props.step);
@@ -894,12 +932,91 @@ function Stepper(props) {
   );
 }
 
+/** The child for `type` out of { reps, time, cardio } (weight × reps for anything else). */
+function Switch2(props) {
+  return <>{props.children[props.type] ?? props.children.reps}</>;
+}
+
+/**
+ * A timed set (a plank): log the time typed in, or time it as you go. Stop
+ * logs it; a chime marks the target (last time's) while it runs.
+ */
+function SetTimer(props) {
+  const now = useNow(200);
+  const seconds = () => (now(), stopwatchSeconds());
+  const target = () => {
+    const ex = draft().exercises[props.i];
+    const t = ex.sets[props.j]?.hint?.time;
+    return t > 0 ? t : null;
+  };
+  let chimed = false;
+  createEffect(
+    on(seconds, (s) => {
+      if (!props.running) chimed = false;
+      else if (!chimed && target() && s >= target()) {
+        chimed = true;
+        if (restSound()) chime();
+        navigator.vibrate?.([30, 60, 30]);
+      }
+    }),
+  );
+  const start = () => {
+    if (restSound()) primeSound(); // the target chime needs a tap to be allowed to play
+    buzz();
+    startStopwatch(props.i, props.j);
+  };
+  const stop = () => {
+    const problem = stopStopwatch(props.i, props.j);
+    if (problem) toast(problem, 'error');
+    else buzz();
+  };
+  return (
+    <Show
+      when={props.running}
+      fallback={
+        <div class="mt-3 grid grid-cols-[auto_1fr] gap-2">
+          <button type="button" class="btn btn-lg btn-tinted" onClick={start}>
+            <Timer size={20} /> Start
+          </button>
+          <button type="button" class="btn btn-lg btn-primary" onClick={() => log(props.i, props.j)}>
+            <Check size={22} strokeWidth={3} /> Log Set
+          </button>
+        </div>
+      }
+    >
+      <div class="mt-3 flex items-center gap-2">
+        <button type="button" class="btn btn-lg btn-gray shrink-0" aria-label="Cancel timer" onClick={cancelStopwatch}>
+          <X size={20} />
+        </button>
+        <button type="button" class="btn btn-lg btn-primary min-w-0 flex-1" onClick={stop}>
+          <span class="num text-[22px]">{formatClock(seconds())}</span>
+          <span class="font-normal opacity-80">· Stop &amp; Log</span>
+        </button>
+      </div>
+      <Show when={target()}>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-fill" aria-hidden="true">
+          <div
+            class="h-full rounded-full bg-accent transition-[width] duration-200"
+            style={{ width: `${Math.min(100, (seconds() / target()) * 100)}%` }}
+          />
+        </div>
+        <p class="t-foot mt-1 text-label-2">
+          {seconds() >= target() ? 'Past last time’s ' : 'Last time: '}
+          <span class="num">{formatClock(target())}</span>
+        </p>
+      </Show>
+    </Show>
+  );
+}
+
 const RPE_CHOICES = ['6', '7', '8', '9', '10'];
 
 /** The open set: weight and reps side by side, RPE, and Log. Small enough that the whole exercise stays in view. */
 function SetEditor(props) {
   const set = () => props.set;
-  const unit = () => draft().exercises[props.i].unit;
+  const ex = () => draft().exercises[props.i];
+  const unit = () => ex().unit;
+  const timing = () => stopwatchFor(props.i, props.j);
   return (
     <div
       role="listitem"
@@ -923,29 +1040,75 @@ function SetEditor(props) {
         </button>
       </div>
 
-      <div class="mt-2.5 grid grid-cols-[1.15fr_1fr] gap-2">
-        <Stepper
-          id={`w-${set().key}`}
-          label={`Weight · ${unit()}`}
-          field="weight"
-          step={weightStepFor(props.i)}
-          inputmode="decimal"
-          bodyweight
-          set={set()}
-          i={props.i}
-          j={props.j}
-        />
-        <Stepper
-          id={`r-${set().key}`}
-          label="Reps"
-          field="reps"
-          step={1}
-          inputmode="numeric"
-          set={set()}
-          i={props.i}
-          j={props.j}
-        />
-      </div>
+      <Switch2 type={ex().type}>
+        {{
+          reps: (
+            <div class="mt-2.5 grid grid-cols-[1.15fr_1fr] gap-2">
+              <Stepper
+                id={`w-${set().key}`}
+                label={`Weight · ${unit()}`}
+                field="weight"
+                step={weightStepFor(props.i)}
+                inputmode="decimal"
+                bodyweight
+                set={set()}
+                i={props.i}
+                j={props.j}
+              />
+              <Stepper
+                id={`r-${set().key}`}
+                label="Reps"
+                field="reps"
+                step={1}
+                inputmode="numeric"
+                set={set()}
+                i={props.i}
+                j={props.j}
+              />
+            </div>
+          ),
+          time: (
+            <div class="mt-2.5">
+              <Stepper
+                id={`t-${set().key}`}
+                label="Time · m:ss"
+                field="time"
+                step={timeStepFor(props.i)}
+                stepLabel="5 seconds"
+                inputmode="decimal"
+                set={set()}
+                i={props.i}
+                j={props.j}
+              />
+            </div>
+          ),
+          cardio: (
+            <div class="mt-2.5 grid grid-cols-2 gap-2">
+              <Stepper
+                id={`d-${set().key}`}
+                label={`Distance · ${ex().distanceUnit}`}
+                field="distance"
+                step={0.1}
+                inputmode="decimal"
+                set={set()}
+                i={props.i}
+                j={props.j}
+              />
+              <Stepper
+                id={`t-${set().key}`}
+                label="Time · min"
+                field="time"
+                step={timeStepFor(props.i)}
+                stepLabel="1 minute"
+                inputmode="decimal"
+                set={set()}
+                i={props.i}
+                j={props.j}
+              />
+            </div>
+          ),
+        }}
+      </Switch2>
 
       <div class="mt-2.5 flex items-center gap-2">
         <span class="t-cap w-9 shrink-0 pl-1 font-medium text-label-2 uppercase">RPE</span>
@@ -970,9 +1133,16 @@ function SetEditor(props) {
       <Show
         when={set().done}
         fallback={
-          <button type="button" class="btn btn-lg btn-primary btn-block mt-3" onClick={() => log(props.i, props.j)}>
-            <Check size={22} strokeWidth={3} /> Log Set
-          </button>
+          <Show
+            when={ex().type === 'time' && draft().mode === 'new'}
+            fallback={
+              <button type="button" class="btn btn-lg btn-primary btn-block mt-3" onClick={() => log(props.i, props.j)}>
+                <Check size={22} strokeWidth={3} /> Log Set
+              </button>
+            }
+          >
+            <SetTimer i={props.i} j={props.j} running={timing()} />
+          </Show>
         }
       >
         <div class="mt-3 grid grid-cols-2 gap-2">
@@ -1113,19 +1283,53 @@ function ExerciseSheet(props) {
   return (
     <Sheet open={props.open} onClose={() => props.onClose()} title={ex()?.name || 'Exercise'}>
       <Show when={ex()}>
-        <div class="group">
-          <div class="row">
-            <span class="flex-1">Weight unit</span>
-            <Segmented
-              class="w-32"
-              label="Weight unit"
-              value={ex().unit}
-              options={UNITS.map((u) => [u, u])}
-              onChange={(u) => setExerciseUnit(props.index, u)}
-            />
+        <p class="group-header">Log each set as</p>
+        <Segmented
+          label="Log each set as"
+          value={ex().type}
+          options={LOG_TYPES.map(([key, label]) => [key, label])}
+          disabled={ex().sets.some((s) => s.done)}
+          onChange={(type) => setExerciseType(props.index, type)}
+        />
+        <p class="group-footer">
+          <Show when={ex().sets.some((s) => s.done)} fallback={LOG_TYPES.find(([key]) => key === ex().type)?.[2]}>
+            Undo its logged sets to change this.
+          </Show>
+        </p>
+
+        <Show when={ex().type === 'reps'}>
+          <div class="group mt-6">
+            <div class="row">
+              <span class="flex-1">Weight unit</span>
+              <Segmented
+                class="w-32"
+                label="Weight unit"
+                value={ex().unit}
+                options={UNITS.map((u) => [u, u])}
+                onChange={(u) => setExerciseUnit(props.index, u)}
+              />
+            </div>
           </div>
-        </div>
-        <p class="group-footer">Relabels this exercise's numbers; nothing is converted.</p>
+          <p class="group-footer">Relabels this exercise's numbers; nothing is converted.</p>
+        </Show>
+        <Show when={ex().type === 'cardio'}>
+          <div class="group mt-6">
+            <div class="row">
+              <span class="flex-1">Distance unit</span>
+              <Segmented
+                class="w-32"
+                label="Distance unit"
+                value={ex().distanceUnit}
+                options={DISTANCE_UNITS.map((u) => [u, u])}
+                onChange={(u) => {
+                  setExerciseDistanceUnit(props.index, u);
+                  setDistanceUnit(u);
+                }}
+              />
+            </div>
+          </div>
+          <p class="group-footer">Relabels the distances typed in; cardio uses it from now on.</p>
+        </Show>
 
         <div class="group mt-6" style={{ '--sep-inset': '3.25rem' }}>
           <button

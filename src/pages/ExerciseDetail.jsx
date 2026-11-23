@@ -11,18 +11,30 @@ import {
   exerciseOptions,
   exerciseSessions,
   fetchProgress,
+  logTypeOf,
   mergeExercise,
   muscleOf,
   saveExercise,
 } from '../lib/data';
-import { groupAfterRename, muscleLabel } from '../lib/exercises';
-import { formatClock, formatDay, formatLoad, formatNumber, formatWeight, plural } from '../lib/format';
+import { groupAfterRename, LOG_TYPES, muscleLabel } from '../lib/exercises';
+import {
+  formatClock,
+  formatDay,
+  formatDistance,
+  formatLoad,
+  formatNumber,
+  formatPace,
+  formatTimedSet,
+  formatWeight,
+  isTimedSet,
+  plural,
+} from '../lib/format';
 import { online } from '../lib/network';
-import { restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';
+import { distanceUnit, restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';
 import { chartPoints, estimate1RM, METRICS, metricsFor, normalizeSessions, records } from '../lib/progress';
 import { renameInDraft } from '../lib/session';
 import { toast } from '../lib/toast';
-import { UNITS } from '../lib/units';
+import { fromMetres, UNITS } from '../lib/units';
 import ExerciseNameInput from '../components/ExerciseNameInput';
 import MusclePicker from '../components/MusclePicker';
 import LineChart from '../components/LineChart';
@@ -90,7 +102,12 @@ export default function ExerciseDetail() {
     const cutoff = Date.now() - span;
     return sessions().filter((s) => Date.parse(s.performed_at) >= cutoff);
   });
-  const points = createMemo(() => chartPoints(inRange(), activeMetric()));
+  // Distances are charted in km (or miles): metres would read "5,000".
+  const points = createMemo(() =>
+    chartPoints(inRange(), activeMetric()).map((p) =>
+      METRICS[activeMetric()].kind === 'distance' ? { ...p, y: fromMetres(p.y, distanceUnit()), metres: p.y } : p,
+    ),
+  );
   createEffect(on([activeMetric, range], () => setSelected(null), { defer: true }));
   const selIndex = () => {
     const n = points().length;
@@ -117,22 +134,42 @@ export default function ExerciseDetail() {
       }
       case 'volume':
       case 'totalReps':
+      case 'totalTime':
         return `${plural(sets.length, 'set')} · ${day}`;
+      case 'distance': {
+        const time = sets.reduce((t, s) => t + (s.duration_seconds ?? 0), 0);
+        const pace = formatPace(p.metres, time, distanceUnit());
+        return [time ? formatClock(time) : null, pace, day].filter(Boolean).join(' · ');
+      }
       default:
         return day;
     }
   };
 
+  const kind = () => METRICS[activeMetric()].kind;
   const readoutValue = () => {
     const p = point();
     if (!p) return '–';
+    if (kind() === 'time') return formatClock(p.y);
+    if (kind() === 'distance') return formatDistance(p.metres, distanceUnit());
     return activeMetric() === 'volume' ? formatNumber(p.y) : weighted() ? w1(p.y) : String(p.y);
   };
-  const readoutUnit = () => (weighted() ? viewUnit() : 'reps');
+  const readoutUnit = () => ({ weight: viewUnit(), reps: 'reps' })[kind()] ?? '';
 
   const stats = () => {
     const r = rec();
     const count = { label: 'Sessions', value: sessions().length || null };
+    if (available()[0] === 'distance') {
+      const total = sessions().reduce((m, s) => m + s.sets.reduce((t, set) => t + (set.distance_m ?? 0), 0), 0);
+      return [
+        count,
+        { label: 'Farthest', value: r.farthest ? formatDistance(r.farthest.distance_m, distanceUnit()) : null },
+        { label: 'Total', value: total ? formatDistance(total, distanceUnit()) : null },
+      ];
+    }
+    if (available()[0] === 'longest') {
+      return [count, { label: 'Longest', value: r.longest ? formatClock(r.longest.duration_seconds) : null }];
+    }
     if (available()[0] === 'reps') {
       return [count, { label: 'Best set', value: r.bestReps?.reps ?? null, unit: 'reps' }];
     }
@@ -212,6 +249,7 @@ export default function ExerciseDetail() {
               points={points()}
               selected={selIndex()}
               onSelect={setSelected}
+              formatY={{ time: formatClock, distance: (v) => `${Math.round(v * 10) / 10}` }[kind()] ?? undefined}
               label={`${METRICS[activeMetric()].label} of ${displayName()} per session, ${plural(points().length, 'session')}. Use the arrow keys to read each one.`}
             />
           </Show>
@@ -245,8 +283,14 @@ export default function ExerciseDetail() {
                 <span class="min-w-0 flex-1">
                   <span class="t-foot block text-label-2">{formatDay(s.performed_at)}</span>
                   <span class="num block truncate font-medium">
-                    {s.sets.map((set) => `${formatLoad(set.original.weight)}×${set.reps}`).join(', ')}
-                    <Show when={s.sets.some((set) => set.original.weight > 0)}>
+                    {s.sets
+                      .map((set) =>
+                        isTimedSet(set)
+                          ? formatTimedSet(set, distanceUnit())
+                          : `${formatLoad(set.original.weight)}×${set.reps}`,
+                      )
+                      .join(', ')}
+                    <Show when={s.sets.some((set) => set.original.weight > 0 && !isTimedSet(set))}>
                       <span class="ml-1 text-[14px] font-normal text-label-2">{s.sets[0].original.unit}</span>
                     </Show>
                     <Show when={s.warmups}>
@@ -298,13 +342,19 @@ function Settings(props) {
       <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
     </button>
   );
+  const type = () => logTypeOf(e());
   return (
     <Section
       title="Settings"
-      footer="You're offered the next weight up once every set reaches the top of the rep range."
+      footer={
+        type() === 'reps' ? "You're offered the next weight up once every set reaches the top of the rep range." : null
+      }
     >
-      {row('Target reps', reps())}
-      {row('Weight step', step())}
+      {row('Log each set as', LOG_TYPES.find(([key]) => key === type())?.[1])}
+      <Show when={type() === 'reps'}>
+        {row('Target reps', reps())}
+        {row('Weight step', step())}
+      </Show>
       {row('Rest timer', rest())}
       <Show when={e().notes}>
         <button type="button" class="row row-tap items-start" onClick={() => props.onEdit()}>
@@ -344,6 +394,7 @@ function EditSheet(props) {
         setForm({
           name: e.name,
           muscle_group: muscleOf(e),
+          log_type: logTypeOf(e),
           notes: e.notes ?? '',
           rep_min: e.rep_min ?? '',
           rep_max: e.rep_max ?? '',
@@ -411,9 +462,12 @@ function EditSheet(props) {
     if (error) return toast(error, 'error');
     const f = form();
     const before = props.exercise.name;
+    // Left as the library has it (null) unless changed.
+    const library = catalogEntry(f.name)?.log_type ?? 'reps';
     saveExercise(props.exercise.id, {
       name: f.name,
       muscle_group: f.muscle_group ?? null,
+      log_type: props.exercise.log_type == null && f.log_type === library ? null : f.log_type,
       notes: f.notes.trim() || null,
       rep_min: toInt(f.rep_min),
       rep_max: toInt(f.rep_max),
@@ -470,42 +524,53 @@ function EditSheet(props) {
             </p>
           </Show>
 
-          <p class="group-header">Progression</p>
-          <div class="group">
-            <div class="row">
-              <span class="flex-1">Target reps</span>
-              <input
-                class="field-inline num w-12 flex-none text-right"
-                inputmode="numeric"
-                placeholder="8"
-                aria-label="Minimum reps"
-                value={field('rep_min')}
-                onInput={(e) => set('rep_min', e.currentTarget.value.replace(/\D/g, ''))}
-              />
-              <span class="text-label-3">–</span>
-              <input
-                class="field-inline num w-12 flex-none"
-                inputmode="numeric"
-                placeholder="12"
-                aria-label="Maximum reps"
-                value={field('rep_max')}
-                onInput={(e) => set('rep_max', e.currentTarget.value.replace(/\D/g, ''))}
-              />
+          <p class="group-header">Log each set as</p>
+          <Segmented
+            label="Log each set as"
+            value={form().log_type}
+            options={LOG_TYPES.map(([key, label]) => [key, label])}
+            onChange={(v) => set('log_type', v)}
+          />
+          <p class="group-footer">{LOG_TYPES.find(([key]) => key === form().log_type)?.[2]}</p>
+
+          <Show when={form().log_type === 'reps'}>
+            <p class="group-header">Progression</p>
+            <div class="group">
+              <div class="row">
+                <span class="flex-1">Target reps</span>
+                <input
+                  class="field-inline num w-12 flex-none text-right"
+                  inputmode="numeric"
+                  placeholder="8"
+                  aria-label="Minimum reps"
+                  value={field('rep_min')}
+                  onInput={(e) => set('rep_min', e.currentTarget.value.replace(/\D/g, ''))}
+                />
+                <span class="text-label-3">–</span>
+                <input
+                  class="field-inline num w-12 flex-none"
+                  inputmode="numeric"
+                  placeholder="12"
+                  aria-label="Maximum reps"
+                  value={field('rep_max')}
+                  onInput={(e) => set('rep_max', e.currentTarget.value.replace(/\D/g, ''))}
+                />
+              </div>
+              <label class="row">
+                <span class="flex-1">Weight step</span>
+                <input
+                  class="field-inline num w-20 flex-none text-right"
+                  inputmode="decimal"
+                  placeholder={formatWeight(weightStep(unit()))}
+                  aria-label="Weight step"
+                  value={field('increment')}
+                  onInput={(e) => set('increment', e.currentTarget.value)}
+                />
+                <span class="text-label-2">{unit()}</span>
+              </label>
             </div>
-            <label class="row">
-              <span class="flex-1">Weight step</span>
-              <input
-                class="field-inline num w-20 flex-none text-right"
-                inputmode="decimal"
-                placeholder={formatWeight(weightStep(unit()))}
-                aria-label="Weight step"
-                value={field('increment')}
-                onInput={(e) => set('increment', e.currentTarget.value)}
-              />
-              <span class="text-label-2">{unit()}</span>
-            </label>
-          </div>
-          <p class="group-footer">Reach the top of the range on every set and you're offered the next weight up.</p>
+            <p class="group-footer">Reach the top of the range on every set and you're offered the next weight up.</p>
+          </Show>
 
           <p class="group-header">Rest timer</p>
           <div class="flex flex-wrap gap-1.5 px-1" role="radiogroup" aria-label="Rest timer">

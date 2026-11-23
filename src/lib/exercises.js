@@ -19,9 +19,17 @@ export const MUSCLE_GROUPS = [
   ['glutes', 'Glutes', '臀・髖'],
   ['calves', 'Calves', '小腿'],
   ['core', 'Core', '核心'],
+  ['cardio', 'Cardio', '有氧'],
   ['other', 'Other', '其他'],
 ];
 export const muscleLabel = (key) => MUSCLE_GROUPS.find(([k]) => k === key)?.[1] ?? null;
+
+/** What a set of an exercise is (matches the API): [key, label, what you log]. */
+export const LOG_TYPES = [
+  ['reps', 'Weight & Reps', 'Weight and reps per set'],
+  ['time', 'Time', 'How long each set lasts: planks, holds'],
+  ['cardio', 'Cardio', 'Distance and time: runs, rowing, cycling'],
+];
 
 /** The body parts the muscle groups add up to: [key, label, zh, muscle groups]. Other belongs to none. */
 export const REGIONS = [

@@ -25,7 +25,8 @@ export function weeklyMuscleSets(workouts, mondays, muscleOfItem) {
       if (!n) continue;
       const named = muscleOfItem(item);
       const group = KNOWN.has(named) ? named : 'other';
-      const region = regionOf(group);
+      // Cardio isn't a body part, but it's listed by itself like one.
+      const region = group === 'cardio' ? 'cardio' : regionOf(group);
       week.sets[group] = (week.sets[group] ?? 0) + n;
       week.regions[region] = (week.regions[region] ?? 0) + n;
       week.total += n;
@@ -35,10 +36,12 @@ export function weeklyMuscleSets(workouts, mondays, muscleOfItem) {
 }
 
 const hasOther = (weeks) => weeks.some((w) => w.sets.other);
+const hasCardio = (weeks) => weeks.some((w) => w.sets.cardio);
 
-/** The body parts to list, as [key, label]: all of them always, Other only when it has sets. */
+/** The body parts to list, as [key, label]: all of them always, Cardio and Other only when they have sets. */
 export const regionsToShow = (weeks) => [
   ...REGIONS.map(([key, label]) => [key, label]),
+  ...(hasCardio(weeks) ? [['cardio', 'Cardio']] : []),
   ...(hasOther(weeks) ? [['other', 'Other']] : []),
 ];
 
@@ -51,6 +54,7 @@ export function regionsWithMuscles(weeks) {
   const label = new Map(MUSCLE_GROUPS.map(([key, name]) => [key, name]));
   return [
     ...REGIONS.map(([key, name, , muscles]) => ({ key, label: name, muscles: muscles.map((m) => [m, label.get(m)]) })),
+    ...(hasCardio(weeks) ? [{ key: 'cardio', label: 'Cardio', muscles: [['cardio', 'Cardio']] }] : []),
     ...(hasOther(weeks) ? [{ key: 'other', label: 'Other', muscles: [['other', 'Other']] }] : []),
   ];
 }

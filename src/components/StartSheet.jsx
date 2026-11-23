@@ -4,9 +4,9 @@ import { ChevronRight, Plus, Repeat } from 'lucide-solid';
 import { summary, workoutList } from '../lib/data';
 import { formatDay, plural } from '../lib/format';
 import { holdBackdrop } from '../lib/motion';
-import { discardDraft, draft, repeatWorkout, restoreDraft, startWorkout } from '../lib/session';
+import { completedSetCount, discardDraft, draft, repeatWorkout, restoreDraft, startWorkout } from '../lib/session';
 import { undoable } from '../lib/toast';
-import { Section, Sheet } from './ui';
+import { ConfirmSheet, Section, Sheet } from './ui';
 
 const [open, setOpen] = createSignal(false);
 
@@ -14,6 +14,37 @@ const [open, setOpen] = createSignal(false);
 export function discardWorkout() {
   const copy = discardDraft();
   if (copy) undoable(copy.mode === 'edit' ? 'Changes discarded' : 'Workout discarded', () => restoreDraft(copy));
+}
+
+// The discard waiting to be confirmed: { run, edit, sets } (what it was when asked, so
+// the sheet doesn't change while it slides away), or null.
+const [asking, setAsking] = createSignal(null);
+
+/** Ask first, then throw the workout in progress away: `then` does it (default: discardWorkout). */
+export function confirmDiscard(then = discardWorkout) {
+  if (!draft()) return;
+  setAsking({ run: then, edit: draft().mode === 'edit', sets: completedSetCount() });
+}
+
+/** "Discard Workout?", for confirmDiscard (one, in the layout). */
+export function DiscardSheet() {
+  const a = () => asking() ?? {};
+  return (
+    <ConfirmSheet
+      open={!!asking()}
+      onClose={() => setAsking(null)}
+      onConfirm={() => asking()?.run()}
+      title={a().edit ? 'Discard Changes?' : 'Discard Workout?'}
+      confirmLabel={a().edit ? 'Discard Changes' : 'Discard Workout'}
+      danger
+    >
+      {a().edit
+        ? 'The workout stays as it was logged.'
+        : a().sets
+          ? `${plural(a().sets, 'logged set')} will be thrown away.`
+          : 'Nothing has been logged yet.'}
+    </ConfirmSheet>
+  );
 }
 
 /** Open the start sheet, or jump back into the workout in progress. */

@@ -114,7 +114,13 @@ export function StatRow(props) {
 export function Segmented(props) {
   const index = () => props.options.findIndex(([value]) => value === props.value);
   return (
-    <div class={`seg ${props.class ?? ''}`} role="radiogroup" aria-label={props.label}>
+    <div
+      class={`seg ${props.class ?? ''}`}
+      classList={{ 'opacity-50': !!props.disabled }}
+      role="radiogroup"
+      aria-label={props.label}
+      aria-disabled={props.disabled ? 'true' : undefined}
+    >
       <Show when={index() >= 0}>
         <span
           class="seg-thumb"
@@ -131,6 +137,7 @@ export function Segmented(props) {
             type="button"
             role="radio"
             aria-checked={props.value === value}
+            disabled={props.disabled}
             onClick={() => props.value !== value && props.onChange(value)}
           >
             {label}

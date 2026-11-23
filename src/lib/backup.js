@@ -4,6 +4,7 @@
 // the same file twice doesn't duplicate anything.
 
 import { parseCsvObjects, toCsv } from './csv';
+import { toMetres } from './units';
 
 // ---- the app's CSV (one row per set) -------------------------------------------
 
@@ -21,6 +22,9 @@ const COLUMNS = [
   'unit',
   'reps',
   'rpe',
+  // Timed and cardio sets (0 reps).
+  'set_seconds',
+  'set_distance_m',
 ];
 
 /** CSV of every set of every workout in a backup, oldest workout first. */
@@ -44,6 +48,8 @@ export function workoutsToCsv(workouts) {
           item.weight_unit ?? 'kg',
           s.reps,
           s.rpe ?? '',
+          s.duration_seconds ?? '',
+          s.distance_m ?? '',
         ]),
       );
     }
@@ -155,16 +161,29 @@ function groupRows(rows, row) {
 
 const clampRpe = (v) => (v != null && v >= 1 && v <= 10 ? v : null);
 
-/** A set worth importing: reps logged (cardio-only rows have none). */
-const isSet = (weight, reps) =>
-  reps != null && reps >= 1 && reps <= 1000 && (weight ?? 0) >= 0 && (weight ?? 0) <= 2000;
+/** A set worth importing: reps, or a time or a distance (timed and cardio sets have no reps). */
+const isSet = (weight, reps, seconds = null, metres = null) =>
+  (weight ?? 0) >= 0 &&
+  (weight ?? 0) <= 2000 &&
+  ((reps != null && reps >= 1 && reps <= 1000) || seconds > 0 || metres > 0);
+
+/** A set's time and distance, when it has them (the API's limits). */
+function timed(seconds, metres) {
+  const out = {};
+  if (seconds > 0) out.duration_seconds = Math.min(Math.round(seconds), 24 * 3600);
+  if (metres > 0) out.distance_m = Math.min(Math.round(metres * 10) / 10, 1_000_000);
+  return out;
+}
 
 const CONVERTERS = {
   terminator: (r) => {
     const weight = num(r.weight);
     const reps = num(r.reps);
+    const seconds = num(r.set_seconds);
+    const metres = num(r.set_distance_m);
     const time = Date.parse(r.date);
-    if (!r.workout_id || Number.isNaN(time) || !r.exercise?.trim() || !isSet(weight, reps)) return null;
+    if (!r.workout_id || Number.isNaN(time) || !r.exercise?.trim() || !isSet(weight, reps, seconds, metres))
+      return null;
     return {
       key: r.workout_id,
       workout: {
@@ -179,9 +198,10 @@ const CONVERTERS = {
       unit: r.unit === 'lb' ? 'lb' : 'kg',
       set: {
         weight: weight ?? 0,
-        reps,
+        reps: reps ?? 0,
         rpe: clampRpe(num(r.rpe)),
         kind: r.set_kind === 'warmup' ? 'warmup' : 'working',
+        ...timed(seconds, metres),
       },
     };
   },
@@ -189,8 +209,17 @@ const CONVERTERS = {
   strong: (r, { unit }) => {
     const weight = num(r.Weight);
     const reps = num(r.Reps);
+    const seconds = num(r.Seconds);
+    // Distances are in km, or miles for someone in lb, unless a column says (newer exports).
+    const distanceUnit =
+      String(r['Distance Unit'] ?? '')
+        .trim()
+        .toLowerCase() || (unit === 'lb' ? 'mi' : 'km');
+    const distance = num(r.Distance);
+    const metres =
+      distance > 0 ? (distanceUnit === 'm' ? distance : toMetres(distance, distanceUnit === 'mi' ? 'mi' : 'km')) : null;
     const performedAt = parseLocalDateTime(r.Date);
-    if (!performedAt || !r['Exercise Name']?.trim() || !isSet(weight, reps)) return null;
+    if (!performedAt || !r['Exercise Name']?.trim() || !isSet(weight, reps, seconds, metres)) return null;
     const name = r['Workout Name']?.trim() || null;
     return {
       key: `strong:${r.Date.trim()}:${name ?? ''}`,
@@ -206,9 +235,10 @@ const CONVERTERS = {
       // Strong numbers sets; some versions write W (warm-up), D (drop set), F (failure).
       set: {
         weight: weight ?? 0,
-        reps,
+        reps: reps ?? 0,
         rpe: clampRpe(num(r.RPE)),
         kind: /^w/i.test(String(r['Set Order']).trim()) || /warm/i.test(r['Set Type'] ?? '') ? 'warmup' : 'working',
+        ...timed(seconds, metres),
       },
     };
   },
@@ -219,8 +249,12 @@ const CONVERTERS = {
     const lbs = num(r.weight_lbs);
     const unit = kg == null && lbs != null ? 'lb' : 'kg';
     const weight = unit === 'lb' ? lbs : kg;
+    const seconds = num(r.duration_seconds);
+    const km = num(r.distance_km);
+    const miles = num(r.distance_miles);
+    const metres = km > 0 ? toMetres(km, 'km') : miles > 0 ? toMetres(miles, 'mi') : null;
     const performedAt = parseHevyDate(r.start_time);
-    if (!performedAt || !r.exercise_title?.trim() || !isSet(weight, reps)) return null;
+    if (!performedAt || !r.exercise_title?.trim() || !isSet(weight, reps, seconds, metres)) return null;
     const end = r.end_time ? parseHevyDate(r.end_time) : null;
     const duration = end ? Math.round((Date.parse(end) - Date.parse(performedAt)) / 1000) : null;
     const name = r.title?.trim() || null;
@@ -238,9 +272,10 @@ const CONVERTERS = {
       unit,
       set: {
         weight: weight ?? 0,
-        reps,
+        reps: reps ?? 0,
         rpe: clampRpe(num(r.rpe)),
         kind: r.set_type === 'warmup' ? 'warmup' : 'working',
+        ...timed(seconds, metres),
       },
     };
   },
@@ -255,7 +290,30 @@ export function fromCsv(text, { unit = 'kg' } = {}) {
   const format = detectFormat(headers);
   if (!format) return { format: null, workouts: [], skipped: rows.length };
   const { workouts, skipped } = groupRows(rows, (r) => CONVERTERS[format](r, { unit }));
-  return { format, workouts, skipped };
+  return { format, workouts, skipped, exercises: logTypesOf(workouts) };
+}
+
+/**
+ * Exercises logged only as times (or distances) are timed (or cardio) ones, so
+ * the next workout asks for a time: [{ id, name, log_type }] for POST /import
+ * (which only fills in what an existing exercise doesn't have yet).
+ */
+function logTypesOf(workouts) {
+  const types = new Map();
+  for (const w of workouts) {
+    for (const item of w.items) {
+      const key = item.exercise_name.toLowerCase();
+      for (const s of item.sets) {
+        const type = s.distance_m != null ? 'cardio' : s.duration_seconds != null ? 'time' : 'reps';
+        const before = types.get(key)?.type;
+        const merged = !before || before === type ? type : before !== 'reps' && type !== 'reps' ? 'cardio' : 'mixed';
+        types.set(key, { name: item.exercise_name, type: merged });
+      }
+    }
+  }
+  return [...types.values()]
+    .filter((t) => t.type === 'time' || t.type === 'cardio')
+    .map((t) => ({ id: crypto.randomUUID(), name: t.name, log_type: t.type }));
 }
 
 /** Read an imported file: our JSON backup, or a CSV export. -> { format, backup, skipped } */
@@ -265,9 +323,9 @@ export function readImportFile(name, text, options) {
     if (data.format !== 'terminator-backup') throw new Error('Not a Terminator backup');
     return { format: 'backup', backup: data, skipped: 0 };
   }
-  const { format, workouts, skipped } = fromCsv(text, options);
+  const { format, workouts, skipped, exercises } = fromCsv(text, options);
   if (!format) throw new Error('Unknown CSV: expected an export of Terminator, Strong or Hevy');
-  return { format, backup: { workouts }, skipped };
+  return { format, backup: { workouts, exercises }, skipped };
 }
 
 /** Workouts, sets and date range of a backup, for the preview. */

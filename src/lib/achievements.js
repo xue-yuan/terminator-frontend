@@ -51,7 +51,10 @@ export function levelProgress(xp, step) {
  * streak: weeks in a row including this one; firstThisWeek: no other workout this week.
  */
 export function workoutXp(workout, rules, { streak = 0, firstThisWeek = false } = {}) {
-  const working = workout.items.flatMap((i) => i.sets).filter((s) => !isWarmup(s) && Number(s.reps) > 0);
+  // Timed and cardio sets log a time or a distance instead of reps.
+  const working = workout.items
+    .flatMap((i) => i.sets)
+    .filter((s) => !isWarmup(s) && (Number(s.reps) > 0 || s.duration_seconds > 0 || s.distance_m > 0));
   const prs = working.filter((s) => s.pr?.length).length;
   const bonus =
     firstThisWeek && streak >= 2 ? Math.min(rules.streak_bonus_per_week * streak, rules.streak_bonus_max) : 0;

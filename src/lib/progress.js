@@ -16,17 +16,31 @@ const max = (values) => {
   return nums.length ? Math.max(...nums) : null;
 };
 
-export const METRICS = {
-  top: { label: 'Top set', weighted: true, value: (sets) => max(sets.map((s) => (s.reps > 0 ? s.weight : null))) },
-  e1rm: { label: 'Est. 1RM', weighted: true, value: (sets) => max(sets.map((s) => estimate1RM(s.weight, s.reps))) },
-  volume: { label: 'Volume', weighted: true, value: (sets) => sets.reduce((t, s) => t + s.weight * s.reps, 0) || null },
-  reps: { label: 'Best set', weighted: false, value: (sets) => max(sets.map((s) => s.reps || null)) },
-  totalReps: { label: 'Total reps', weighted: false, value: (sets) => sets.reduce((t, s) => t + s.reps, 0) || null },
-};
+const sum = (values) => values.reduce((t, v) => t + (v ?? 0), 0) || null;
 
-/** Bodyweight exercises (nothing ever logged with weight) are charted by reps. */
-export const metricsFor = (sessions) =>
-  sessions.some((s) => s.sets.some((set) => set.weight > 0)) ? ['top', 'e1rm', 'volume'] : ['reps', 'totalReps'];
+// `kind`: what the number is (weight in the viewed unit, reps, seconds, metres).
+export const METRICS = {
+  top: { label: 'Top set', kind: 'weight', value: (sets) => max(sets.map((s) => (s.reps > 0 ? s.weight : null))) },
+  e1rm: { label: 'Est. 1RM', kind: 'weight', value: (sets) => max(sets.map((s) => estimate1RM(s.weight, s.reps))) },
+  volume: { label: 'Volume', kind: 'weight', value: (sets) => sets.reduce((t, s) => t + s.weight * s.reps, 0) || null },
+  reps: { label: 'Best set', kind: 'reps', value: (sets) => max(sets.map((s) => s.reps || null)) },
+  totalReps: { label: 'Total reps', kind: 'reps', value: (sets) => sets.reduce((t, s) => t + s.reps, 0) || null },
+  longest: { label: 'Longest', kind: 'time', value: (sets) => max(sets.map((s) => s.duration_seconds ?? null)) },
+  totalTime: { label: 'Total time', kind: 'time', value: (sets) => sum(sets.map((s) => s.duration_seconds)) },
+  distance: { label: 'Distance', kind: 'distance', value: (sets) => sum(sets.map((s) => s.distance_m)) },
+};
+for (const m of Object.values(METRICS)) m.weighted = m.kind === 'weight';
+
+/**
+ * The charts an exercise gets: cardio by distance and time, holds by time,
+ * bodyweight exercises (nothing ever logged with weight) by reps.
+ */
+export function metricsFor(sessions) {
+  const sets = sessions.flatMap((s) => s.sets);
+  if (sets.some((set) => set.distance_m != null)) return ['distance', 'totalTime'];
+  if (sets.some((set) => set.duration_seconds != null)) return ['longest', 'totalTime'];
+  return sets.some((set) => set.weight > 0) ? ['top', 'e1rm', 'volume'] : ['reps', 'totalReps'];
+}
 
 /**
  * Sessions merged per workout (an exercise can appear twice in one workout,
@@ -51,6 +65,8 @@ export function normalizeSessions(sessions, unit) {
         weight: convert(set.weight, s.weight_unit, unit),
         reps: set.reps,
         rpe: set.rpe,
+        duration_seconds: set.duration_seconds ?? null,
+        distance_m: set.distance_m ?? null,
         original: { weight: set.weight, unit: s.weight_unit },
       });
     }
@@ -67,13 +83,23 @@ export function chartPoints(normalized, metric) {
     .sort((a, b) => a.x - b.x);
 }
 
-/** Best values across all sessions (in the viewed unit). */
+/** Best values across all sessions (in the viewed unit); a hold's longest time, cardio's farthest distance. */
 export function records(normalized) {
   let topSet = null;
   let best1RM = null;
   let bestReps = null;
+  let longest = null;
+  let farthest = null;
   for (const session of normalized) {
     for (const s of session.sets) {
+      if (s.distance_m != null) {
+        if (s.distance_m > 0 && (!farthest || s.distance_m > farthest.distance_m)) farthest = { ...s, session };
+        continue;
+      }
+      if (s.duration_seconds != null) {
+        if (!longest || s.duration_seconds > longest.duration_seconds) longest = { ...s, session };
+        continue;
+      }
       if (s.reps > 0 && (!topSet || s.weight > topSet.weight || (s.weight === topSet.weight && s.reps > topSet.reps))) {
         topSet = { ...s, session };
       }
@@ -82,5 +108,5 @@ export function records(normalized) {
       if (!bestReps || s.reps > bestReps.reps) bestReps = { ...s, session };
     }
   }
-  return { topSet, best1RM, bestReps };
+  return { topSet, best1RM, bestReps, longest, farthest };
 }

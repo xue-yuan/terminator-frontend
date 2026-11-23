@@ -1,14 +1,18 @@
 import { createResource, createSignal, For, onCleanup, Show } from 'solid-js';
 import { A, useNavigate, useParams } from '@solidjs/router';
-import { ChevronRight, PartyPopper, Repeat, SearchX, Trash2, TriangleAlert, Trophy } from 'lucide-solid';
+import { ChevronRight, PartyPopper, Repeat, SearchX, Share, Trash2, TriangleAlert, Trophy } from 'lucide-solid';
 import { api } from '../lib/api';
 import { deleteWorkout, itemExerciseId, progression, saveWorkout, workoutList } from '../lib/data';
 import {
   formatDay,
+  formatDistance,
   formatDuration,
   formatLoad,
   formatNumber,
+  formatPace,
   formatTime,
+  formatTimedSet,
+  isTimedSet,
   isWarmup,
   ordinal,
   plural,
@@ -18,7 +22,7 @@ import {
   volume,
   workingSets,
 } from '../lib/format';
-import { unit } from '../lib/prefs';
+import { distanceUnit, unit } from '../lib/prefs';
 import { describeRecords } from '../lib/records';
 import { draft, editWorkout, repeatWorkout } from '../lib/session';
 import { toast, undoable } from '../lib/toast';
@@ -29,8 +33,14 @@ import { countUp, freshUnlocks, showCelebration, takeCelebration } from '../lib/
 import { levelProgress } from '../lib/achievements';
 import { Badge, XpBar } from '../components/Achievement';
 import { totalWorkouts, weekStreak, workoutsThisWeek } from '../lib/stats';
+import { fileDate } from '../lib/download';
+import { workoutCard } from '../lib/sharecard';
+import ShareSheet, { sharer } from '../components/ShareSheet';
 
 const prCount = (w) => w.items.reduce((n, item) => n + item.sets.filter((s) => s.pr?.length).length, 0);
+/** Metres run, rowed or ridden in a workout's working sets. */
+const distanceOf = (w) =>
+  w.items.reduce((m, item) => m + workingSets(item.sets).reduce((t, s) => t + (s.distance_m ?? 0), 0), 0);
 
 /** Right after Finish & Save (lib/celebrate.js): what the workout adds up to, with a badge popping in. */
 function Celebration(props) {
@@ -59,6 +69,14 @@ function Celebration(props) {
         </p>
       </Show>
       <Show when={props.xp}>{(xp) => <XpGain xp={xp()} />}</Show>
+      <button
+        type="button"
+        class="btn btn-tinted btn-block celebrate-rise mt-4"
+        style={{ 'animation-delay': '760ms' }}
+        onClick={() => props.onShare()}
+      >
+        <Share size={18} /> Share Workout
+      </button>
       <Show when={freshUnlocks().length}>
         <div class="mt-4 border-t-[0.5px] border-separator pt-3 text-left">
           <p class="t-foot font-semibold tracking-wide text-label-2 uppercase">New titles</p>
@@ -115,6 +133,7 @@ export default function WorkoutDetail() {
   const back = useBack();
   const { resume } = useStart();
   const [confirmDelete, setConfirmDelete] = createSignal(false);
+  const [sharing, setSharing] = createSignal(false);
   // Just finished: the card above the stats, and the stats counting up from 0.
   const celebration = takeCelebration(params.id);
   const fresh = !!celebration;
@@ -166,6 +185,14 @@ export default function WorkoutDetail() {
         title={w()?.name || 'Workout'}
         actions={
           <Show when={w()}>
+            <button
+              type="button"
+              class="btn btn-icon text-accent"
+              aria-label="Share workout"
+              onClick={() => setSharing(true)}
+            >
+              <Share size={22} />
+            </button>
             <button type="button" class="btn btn-plain h-11 px-2" onClick={edit}>
               Edit
             </button>
@@ -193,7 +220,7 @@ export default function WorkoutDetail() {
         </Show>
 
         <Show when={fresh}>
-          <Celebration workout={w()} xp={celebration.xp} />
+          <Celebration workout={w()} xp={celebration.xp} onShare={() => setSharing(true)} />
         </Show>
 
         <div class="mt-3">
@@ -201,7 +228,10 @@ export default function WorkoutDetail() {
             stats={[
               { label: 'Time', value: formatDuration(grow(w().duration_seconds)) },
               { label: 'Sets', value: Math.round(grow(setCount(w()))) },
-              { label: 'Volume', value: formatNumber(grow(volume(w(), unit()))), unit: unit() },
+              // A run has no volume to speak of: its distance instead.
+              volume(w()) === 0 && distanceOf(w()) > 0
+                ? { label: 'Distance', value: formatDistance(grow(distanceOf(w())), distanceUnit()) }
+                : { label: 'Volume', value: formatNumber(grow(volume(w(), unit()))), unit: unit() },
             ]}
           />
         </div>
@@ -247,12 +277,24 @@ export default function WorkoutDetail() {
                         <span class="num w-6 shrink-0 text-center text-[15px] font-semibold text-label-3">
                           {setLabel(item.sets, j())}
                         </span>
-                        <span class="num flex-1" classList={{ 'text-label-2': isWarmup(set) }}>
-                          <span class="text-[19px] font-semibold">{formatLoad(set.weight)}</span>
-                          <span class="mx-1 text-[14px] text-label-2">
-                            {set.weight > 0 ? `${item.weight_unit ?? 'kg'} ×` : '×'}
-                          </span>
-                          <span class="text-[19px] font-semibold">{set.reps}</span>
+                        <span class="num min-w-0 flex-1" classList={{ 'text-label-2': isWarmup(set) }}>
+                          <Show
+                            when={isTimedSet(set)}
+                            fallback={
+                              <>
+                                <span class="text-[19px] font-semibold">{formatLoad(set.weight)}</span>
+                                <span class="mx-1 text-[14px] text-label-2">
+                                  {set.weight > 0 ? `${item.weight_unit ?? 'kg'} ×` : '×'}
+                                </span>
+                                <span class="text-[19px] font-semibold">{set.reps}</span>
+                              </>
+                            }
+                          >
+                            <span class="text-[19px] font-semibold">{formatTimedSet(set, distanceUnit())}</span>
+                            <Show when={formatPace(set.distance_m, set.duration_seconds, distanceUnit())}>
+                              {(pace) => <span class="ml-1.5 text-[14px] text-label-2">{pace()}</span>}
+                            </Show>
+                          </Show>
                         </span>
                         <Show when={set.rpe != null}>
                           <span class="pill">RPE {set.rpe}</span>
@@ -285,6 +327,17 @@ export default function WorkoutDetail() {
             <Trash2 size={20} class="w-6" /> Delete Workout
           </button>
         </div>
+      </Show>
+
+      <Show when={w()}>
+        <ShareSheet
+          open={sharing()}
+          onClose={() => setSharing(false)}
+          title="Share Workout"
+          filename={`workout-${fileDate(new Date(w().performed_at))}.png`}
+          alt={`${w().name || 'Workout'}: a picture to share`}
+          make={() => workoutCard(w(), { who: sharer(), unit: unit(), distanceUnit: distanceUnit() })}
+        />
       </Show>
 
       <ConfirmSheet

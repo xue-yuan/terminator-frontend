@@ -2,13 +2,13 @@ import { createEffect, createMemo, createSignal, For, on, Show } from 'solid-js'
 import { ChevronRight, CloudOff, Plus, Search, ShieldCheck, Trash2, TriangleAlert } from 'lucide-solid';
 import { isAdmin } from '../lib/auth';
 import { addToLibrary, catalog, refreshAll, removeFromLibrary, saveLibraryEntry } from '../lib/data';
-import { matchesQuery, MUSCLE_GROUPS } from '../lib/exercises';
+import { LOG_TYPES, matchesQuery, MUSCLE_GROUPS } from '../lib/exercises';
 import { plural } from '../lib/format';
 import { online } from '../lib/network';
 import { toast } from '../lib/toast';
 import MusclePicker from '../components/MusclePicker';
 import { SwipeRow } from '../components/SwipeRow';
-import { ConfirmSheet, EmptyState, PageHeader, Section, Sheet, Spinner } from '../components/ui';
+import { ConfirmSheet, EmptyState, PageHeader, Section, Segmented, Sheet, Spinner } from '../components/ui';
 
 /**
  * The built-in exercise library (admins only): the suggestions everyone gets
@@ -208,7 +208,7 @@ export default function Library() {
   );
 }
 
-const BLANK = { name: '', zh: '', aka: '', muscle_group: null };
+const BLANK = { name: '', zh: '', aka: '', muscle_group: null, log_type: 'reps' };
 
 /** Add or edit one library entry. `entry`: null (closed), {} (new) or the entry. */
 function EntrySheet(props) {
@@ -228,6 +228,7 @@ function EntrySheet(props) {
           zh: entry.zh ?? '',
           aka: entry.aka ?? '',
           muscle_group: entry.muscle_group ?? null,
+          log_type: entry.log_type ?? 'reps',
         });
       },
     ),
@@ -244,6 +245,7 @@ function EntrySheet(props) {
       zh: f.zh.trim() || null,
       aka: f.aka.trim() || null,
       muscle_group: f.muscle_group,
+      log_type: f.log_type,
     };
     setBusy(true);
     try {
@@ -292,6 +294,15 @@ function EntrySheet(props) {
 
         <p class="group-header">Muscle group</p>
         <MusclePicker value={form().muscle_group} onPick={(key) => set('muscle_group', key)} withZh disabled={busy()} />
+
+        <p class="group-header">Each set is</p>
+        <Segmented
+          label="Each set is"
+          value={form().log_type}
+          options={LOG_TYPES.map(([key, label]) => [key, label])}
+          onChange={(v) => set('log_type', v)}
+        />
+        <p class="group-footer">{LOG_TYPES.find(([key]) => key === form().log_type)?.[2]}</p>
 
         <button type="submit" class="btn btn-lg btn-primary btn-block mt-6" aria-busy={busy()} disabled={busy()}>
           {isNew() ? 'Add to Library' : 'Save'}

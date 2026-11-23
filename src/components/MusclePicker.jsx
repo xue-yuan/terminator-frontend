@@ -3,7 +3,7 @@ import { MUSCLE_GROUPS, REGIONS } from '../lib/exercises';
 
 const NAMES = new Map(MUSCLE_GROUPS.map(([key, label, zh]) => [key, { label, zh }]));
 // Head to toe, the groups of a body part kept together (they wrap as one), Other last.
-const CLUSTERS = [...REGIONS.map(([, , , muscles]) => muscles), ['other']];
+const CLUSTERS = [...REGIONS.map(([, , , muscles]) => muscles), ['cardio', 'other']];
 
 const chip = (selected) =>
   `h-8 rounded-full px-3.5 text-[14px] font-medium transition-colors ${selected ? 'bg-accent text-on-accent' : 'bg-fill text-label'}`;

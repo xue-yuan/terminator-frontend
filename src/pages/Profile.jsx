@@ -2,6 +2,7 @@ import { createSignal, For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import {
   BookOpen,
+  CalendarRange,
   ChevronRight,
   Download,
   Music,
@@ -11,19 +12,22 @@ import {
   ShieldCheck,
   Trash2,
   TriangleAlert,
+  Users,
 } from 'lucide-solid';
 import { currentUser, isAdmin, signOut } from '../lib/auth';
 import { levelProgress, unlocks } from '../lib/achievements';
-import { bodyWeightList, progression } from '../lib/data';
+import { bodyWeightList, community, progression } from '../lib/data';
 import { formatDay, formatWeight, plural, timeAgo } from '../lib/format';
 import { canPromptInstall, isIOS, isStandalone, promptInstall } from '../lib/install';
 import { online } from '../lib/network';
 import {
   celebrate,
+  distanceUnit,
   keepAwake,
   restSeconds,
   restSound,
   setCelebrate,
+  setDistanceUnit,
   setKeepAwake,
   setRestSeconds,
   setRestSound,
@@ -192,15 +196,46 @@ export default function Profile() {
         </Section>
       </Show>
 
-      <Section class="mt-2" title="Body">
+      <Section class="mt-2">
+        <A href="/recap" class="row row-tap" style={{ '--sep-inset': '3.75rem' }}>
+          <span class="row-icon bg-[#ff9500]">
+            <CalendarRange size={18} />
+          </span>
+          <span class="flex-1">Recap</span>
+          <span class="row-value t-sub">Your week and month</span>
+          <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+        </A>
+        <A href="/community" class="row row-tap" style={{ '--sep-inset': '3.75rem' }}>
+          <span class="row-icon bg-[#5856d6]">
+            <Users size={18} />
+          </span>
+          <span class="flex-1">Community</span>
+          <span class="row-value t-sub">
+            <Show when={community.data()?.length} fallback="Who trains here">
+              {(n) => plural(n(), 'player')}
+            </Show>
+          </span>
+          <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
+        </A>
+      </Section>
+
+      <Section title="Body">
         <A href="/body" class="row row-tap" style={{ '--sep-inset': '3.75rem' }}>
           <span class="row-icon bg-[#34c759]">
             <Scale size={18} />
           </span>
-          <span class="flex-1">Body Weight</span>
+          <span class="flex-1">Weight &amp; Body Fat</span>
           <span class="row-value t-sub">
             <Show when={bodyWeightList()[0]}>
-              {(last) => `${formatWeight(last().weight)} ${last().unit} · ${timeAgo(last().measured_at)}`}
+              {(last) =>
+                [
+                  `${formatWeight(last().weight)} ${last().unit}`,
+                  last().body_fat != null ? `${Math.round(last().body_fat * 10) / 10}%` : null,
+                  timeAgo(last().measured_at),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              }
             </Show>
           </span>
           <ChevronRight size={17} class="-mr-1 shrink-0 text-label-3" />
@@ -268,6 +303,17 @@ export default function Profile() {
               ['lb', 'lb'],
             ]}
             onChange={setUnit}
+          />
+        </Choice>
+        <Choice label="Distance unit" hint="Cardio">
+          <Segmented
+            label="Distance unit"
+            value={distanceUnit()}
+            options={[
+              ['km', 'km'],
+              ['mi', 'mi'],
+            ]}
+            onChange={setDistanceUnit}
           />
         </Choice>
         <Choice label="Weight step (kg)" hint="The − / + buttons">

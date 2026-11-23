@@ -12,3 +12,9 @@ export function convert(value, from = 'kg', to = 'kg') {
 
 /** Round a converted weight to something loadable (nearest 0.5). */
 export const roundWeight = (value) => Math.round(value * 2) / 2;
+
+// Distances (cardio) are stored in metres and shown in km or miles.
+export const DISTANCE_UNITS = ['km', 'mi'];
+const METRES = { km: 1000, mi: 1609.344 };
+export const toMetres = (value, unit = 'km') => value * (METRES[unit] ?? 1000);
+export const fromMetres = (metres, unit = 'km') => metres / (METRES[unit] ?? 1000);

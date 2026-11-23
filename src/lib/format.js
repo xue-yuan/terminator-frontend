@@ -1,4 +1,4 @@
-import { convert } from './units';
+import { convert, fromMetres } from './units';
 
 const LOCALE = 'en-GB';
 const dayFmt = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
@@ -64,6 +64,32 @@ export function timeAgo(iso) {
   return 'just now';
 }
 
+/** "5 km", "3.1 mi"; under a kilometre in metres ("800 m"). */
+export function formatDistance(metres, unit = 'km') {
+  if (metres == null) return null;
+  if (unit === 'km' && metres < 1000) return `${Math.round(metres)} m`;
+  return `${Math.round(fromMetres(metres, unit) * 100) / 100} ${unit}`;
+}
+
+/** Minutes and seconds per km (or mile): "5:12 /km". Null without both a distance and a time. */
+export function formatPace(metres, seconds, unit = 'km') {
+  if (!(metres > 0) || !(seconds > 0)) return null;
+  return `${formatClock(seconds / fromMetres(metres, unit))} /${unit}`;
+}
+
+/** A timed or cardio set: it logs a time or a distance instead of weight × reps. */
+export const isTimedSet = (set) => set.duration_seconds != null || set.distance_m != null;
+
+/** "1:30" for a timed set, "5 km · 25:00" for cardio (either may be missing). */
+export function formatTimedSet(set, distanceUnit = 'km') {
+  return [
+    set.distance_m != null ? formatDistance(set.distance_m, distanceUnit) : null,
+    set.duration_seconds != null ? formatClock(set.duration_seconds) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 /** Warm-up sets don't count towards set counts, volume or records. */
 export const isWarmup = (set) => set.kind === 'warmup';
 export const workingSets = (sets) => sets.filter((s) => !isWarmup(s));
@@ -90,8 +116,9 @@ export function volume(w, unit = 'kg') {
 /** A set's load: the weight, or "BW" for a bodyweight set (logged as 0). */
 export const formatLoad = (weight) => (Number(weight) > 0 ? formatWeight(Number(weight)) : 'BW');
 
-export function describeSets(allSets, unit) {
+export function describeSets(allSets, unit, distanceUnit = 'km') {
   const sets = workingSets(allSets);
+  if (sets.some(isTimedSet)) return sets.map((s) => formatTimedSet(s, distanceUnit)).join(', ');
   const list = sets.map((s) => `${formatLoad(s.weight)}×${s.reps}`).join(', ');
   return unit && sets.some((s) => s.weight > 0) ? `${list} ${unit}` : list;
 }

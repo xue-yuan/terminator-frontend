@@ -84,7 +84,7 @@ describe('adding a set', () => {
     type(0, 0, 'weight', '100');
     type(0, 0, 'reps', '6');
     s.logSet(0, 0);
-    expect(s.addSetPreview(0)).toEqual({ weight: '100', reps: '6', unit: 'kg' });
+    expect(s.addSetPreview(0)).toMatchObject({ type: 'reps', weight: '100', reps: '6', unit: 'kg' });
     s.addSet(0);
     expect(set(0, 1)).toMatchObject({ weight: '100', reps: '6', done: false });
     expect(s.draft().focus).toEqual({ ex: 0, set: 1 });
@@ -421,5 +421,119 @@ describe('editing a logged workout', () => {
     s.discardDraft();
     s.startWorkout();
     expect(s.draftChanged()).toBe(true);
+  });
+});
+
+describe('timed and cardio sets', () => {
+  it('read a time as m:ss, or seconds (minutes for cardio)', () => {
+    expect(s.parseDuration('1:30')).toBe(90);
+    expect(s.parseDuration('90')).toBe(90);
+    expect(s.parseDuration('25', 'min')).toBe(1500);
+    expect(s.parseDuration('1:02:03')).toBe(3723);
+    expect(s.parseDuration('')).toBe(null);
+    expect(s.parseDuration('1:x')).toBeNaN();
+  });
+
+  it('log a hold as a time, carried into the next set, and saved with 0 reps', () => {
+    s.startWorkout({ planDay: squatDay(2, 'Plank') });
+    s.setExerciseType(0, 'time');
+    expect(s.draft().exercises[0].type).toBe('time');
+    expect(s.logSet(0, 0)).toMatch(/time/i);
+    type(0, 0, 'time', '75');
+    expect(s.logSet(0, 0)).toBeNull();
+    expect(set(0, 0)).toMatchObject({ time: '1:15', done: true });
+    expect(set(0, 1)).toMatchObject({ time: '1:15', done: false });
+    s.stepField(0, 1, 'time', s.timeStepFor(0));
+    expect(set(0, 1).time).toBe('1:20');
+    s.logSet(0, 1);
+    const { workout } = s.buildWorkout();
+    expect(
+      workout.items[0].sets.map(({ weight, reps, duration_seconds, distance_m }) => [
+        weight,
+        reps,
+        duration_seconds,
+        distance_m,
+      ]),
+    ).toEqual([
+      [0, 0, 75, null],
+      [0, 0, 80, null],
+    ]);
+  });
+
+  it('time a hold with the stopwatch: stopping logs it', () => {
+    s.startWorkout({ planDay: squatDay(1, 'Plank') });
+    s.setExerciseType(0, 'time');
+    s.startStopwatch(0, 0);
+    expect(s.stopwatchFor(0, 0)).not.toBe(null);
+    s.updateDraft('stopwatch', 'startedAt', new Date(Date.now() - 45_000).toISOString());
+    expect(s.stopStopwatch(0, 0)).toBeNull();
+    expect(set(0, 0)).toMatchObject({ time: '0:45', done: true });
+    expect(s.draft().stopwatch).toBe(null);
+  });
+
+  it('log cardio as a distance and/or a time (a plain number is minutes), and start no rest timer', () => {
+    s.startWorkout({ planDay: squatDay(2, 'Running') });
+    s.setExerciseType(0, 'cardio');
+    expect(s.logSet(0, 0)).toMatch(/distance or a time/i);
+    type(0, 0, 'distance', '5');
+    type(0, 0, 'time', '25');
+    expect(s.logSet(0, 0)).toBeNull();
+    expect(set(0, 0)).toMatchObject({ distance: '5', time: '25:00' });
+    expect(s.draft().restEndsAt).toBe(null);
+    type(0, 1, 'distance', '1,5');
+    type(0, 1, 'time', '');
+    s.updateDraft('exercises', 0, 'sets', 1, 'hint', null);
+    expect(s.logSet(0, 1)).toBeNull();
+    const sets = s.buildWorkout().workout.items[0].sets;
+    expect(sets.map((x) => [x.distance_m, x.duration_seconds])).toEqual([
+      [5000, 1500],
+      [1500, null],
+    ]);
+  });
+
+  it("can't change what a set is once one is logged", () => {
+    s.startWorkout({ planDay: squatDay(2) });
+    type(0, 0, 'weight', '100');
+    s.logSet(0, 0);
+    s.setExerciseType(0, 'time');
+    expect(s.draft().exercises[0].type).toBe('reps');
+  });
+});
+
+describe('a deload week', () => {
+  it('suggests 90% of the weights and half the sets, and no step up', async () => {
+    const prefs = await import('./prefs');
+    const id = 'e-squat';
+    data.exercises.set([
+      {
+        id,
+        name: 'Deload Squat',
+        muscle_group: 'quads',
+        log_type: null,
+        rep_min: 3,
+        rep_max: 5,
+        increment: 2.5,
+        last_unit: 'kg',
+        last_performed_at: new Date().toISOString(),
+        times_performed: 4,
+        last_sets: Array.from({ length: 4 }, () => ({ weight: 100, reps: 5, kind: 'working', rpe: null })),
+      },
+    ]);
+    s.startWorkout({ planDay: squatDay(4, 'Deload Squat', [3, 5]) });
+    expect(s.draft().exercises[0].suggestion).toMatchObject({ weight: 102.5 }); // every set at the top: up a step
+
+    const now = Date.now();
+    prefs.setDeloadWeek({
+      start: new Date(now - 3600_000).toISOString(),
+      end: new Date(now + 6 * 86400_000).toISOString(),
+    });
+    s.startWorkout({ planDay: squatDay(4, 'Deload Squat', [3, 5]) });
+    const ex = s.draft().exercises[0];
+    expect(ex.deload).toBe(true);
+    expect(ex.suggestion).toBe(null);
+    expect(ex.sets).toHaveLength(2);
+    expect(ex.sets[0].hint).toMatchObject({ weight: 90, reps: 5 });
+    prefs.setDeloadWeek(null);
+    data.exercises.set([]);
   });
 });

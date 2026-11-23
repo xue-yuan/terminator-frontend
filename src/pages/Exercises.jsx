@@ -3,7 +3,8 @@ import { A } from '@solidjs/router';
 import { ChevronRight, Dumbbell, Search, Trash2 } from 'lucide-solid';
 import { catalogEntry, deleteExercise, exerciseList, muscleOf } from '../lib/data';
 import { matchesQuery, MUSCLE_GROUPS, muscleLabel } from '../lib/exercises';
-import { formatWeight, plural, timeAgo, workingSets } from '../lib/format';
+import { formatClock, formatDistance, formatWeight, isTimedSet, plural, timeAgo, workingSets } from '../lib/format';
+import { distanceUnit } from '../lib/prefs';
 import { online } from '../lib/network';
 import { toast } from '../lib/toast';
 import { SwipeRow } from '../components/SwipeRow';
@@ -11,6 +12,12 @@ import { ConfirmSheet, EmptyState, LogTabs, PageHeader } from '../components/ui'
 
 /** Heaviest set of a session, e.g. "100 kg × 5", or "12 reps" for bodyweight. */
 function topSet(sets, unit) {
+  // A hold's longest time; cardio's farthest distance (else its longest time).
+  if (sets.some(isTimedSet)) {
+    const far = Math.max(0, ...sets.map((s) => s.distance_m ?? 0));
+    if (far > 0) return { value: formatDistance(far, distanceUnit()), unit: '' };
+    return { value: formatClock(Math.max(0, ...sets.map((s) => s.duration_seconds ?? 0))), unit: '' };
+  }
   const top = sets.reduce(
     (best, s) => (!best || s.weight > best.weight || (s.weight === best.weight && s.reps > best.reps) ? s : best),
     null,

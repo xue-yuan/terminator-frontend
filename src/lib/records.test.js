@@ -60,3 +60,35 @@ describe('next step (double progression)', () => {
     expect(nextStep({ lastSets: [set(0, 20)], repMin: 10, repMax: 15, step: 2.5 })).toBeNull();
   });
 });
+
+describe('records of timed and cardio sets', () => {
+  const timed = (secs, extra = {}) => ({
+    weight: 0,
+    reps: 0,
+    kind: 'working',
+    unit: 'kg',
+    duration_seconds: secs,
+    ...extra,
+  });
+  const run = (m, secs) => timed(secs, { distance_m: m });
+
+  it('the longest hold, and the farthest distance (a longer time alone is no record for a run)', () => {
+    const plank = bestMarks({ best_duration: { weight: 0, reps: 0, weight_unit: 'kg', duration_seconds: 90 } });
+    expect(hasMarks(plank)).toBe(true);
+    expect(recordsBroken(timed(95), plank)).toEqual(['duration']);
+    expect(recordsBroken(timed(90), plank)).toEqual([]);
+    const running = bestMarks({
+      best_distance: { weight: 0, reps: 0, weight_unit: 'kg', distance_m: 5000, duration_seconds: 1500 },
+    });
+    expect(recordsBroken(run(5200, 1700), running)).toEqual(['distance']);
+    expect(recordsBroken(run(4000, 3000), running)).toEqual([]);
+    expect(running.secs).toBe(null);
+  });
+
+  it('count sets logged since, and never warm-ups', () => {
+    const best = bestMarks({}, [timed(60), timed(80)]);
+    expect(recordsBroken(timed(70), best)).toEqual([]);
+    expect(recordsBroken(timed(81), best)).toEqual(['duration']);
+    expect(recordsBroken(timed(300, { kind: 'warmup' }), best)).toEqual([]);
+  });
+});

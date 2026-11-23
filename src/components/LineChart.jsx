@@ -58,7 +58,8 @@ export default function LineChart(props) {
     const px = (x) => PAD.left + (span ? ((x - x0) / span) * innerW : innerW / 2);
     const py = (v) => PAD.top + innerH - ((v - y.lo) / (y.hi - y.lo)) * innerH;
     const coords = pts.map((p) => [px(p.x), py(p.y)]);
-    const fmtY = y.hi >= 10000 ? (v) => compact.format(v) : (v) => full.format(v);
+    // props.formatY: the y-axis labels in the chart's own terms ("1:30", "5 km").
+    const fmtY = props.formatY ?? (y.hi >= 10000 ? (v) => compact.format(v) : (v) => full.format(v));
     const fmtX = span > 300 * 86_400_000 ? (t) => monthYear.format(t) : (t) => dayMonth.format(t);
     // Up to three date labels (first, middle, last), skipping ones that would collide.
     const xTicks = [];

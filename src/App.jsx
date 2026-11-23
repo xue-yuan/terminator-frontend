@@ -10,6 +10,7 @@ import Achievements from './pages/Achievements';
 import Admin from './pages/Admin';
 import Body from './pages/Body';
 import Calendar from './pages/Calendar';
+import Community from './pages/Community';
 import ExerciseDetail from './pages/ExerciseDetail';
 import Exercises from './pages/Exercises';
 import History from './pages/History';
@@ -21,6 +22,7 @@ import PlanDetail from './pages/PlanDetail';
 import PlanEditor from './pages/PlanEditor';
 import Plans from './pages/Plans';
 import Profile from './pages/Profile';
+import Recap from './pages/Recap';
 import Session from './pages/Session';
 import SpotifyDone from './pages/SpotifyDone';
 import WorkoutDetail from './pages/WorkoutDetail';
@@ -78,6 +80,8 @@ export default function App() {
         <Route path="/profile" component={Profile} />
         <Route path="/achievements" component={Achievements} />
         <Route path="/body" component={Body} />
+        <Route path="/recap" component={Recap} />
+        <Route path="/community" component={Community} />
         <Route path="/admin" component={Admin} />
         <Route path="/admin/library" component={Library} />
         <Route path="*" component={() => <Navigate href="/" />} />

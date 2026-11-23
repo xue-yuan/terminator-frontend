@@ -1,6 +1,8 @@
 import { exerciseById, itemExerciseId, muscleOf, RECENT_LIMIT, summary, workouts, workoutList } from './data';
 import { addDays, dayKey, startOfWeek, weekStreakOf } from './dates';
+import { deloadAdvice, isDeloadOn } from './deload';
 import { weeklyMuscleSets } from './muscles';
+import { deloadSnooze, deloadWeek, setDeloadSnooze, setDeloadWeek } from './prefs';
 
 /** Muscle group of a logged exercise: your exercise's, else the library's for its name. */
 const muscleOfItem = (item) => muscleOf(exerciseById(itemExerciseId(item)) ?? { name: item.exercise_name });
@@ -67,3 +69,41 @@ export function totalWorkouts() {
   const unsyncedNew = workoutList().filter((w) => w.pending && !w.created_at).length;
   return Math.max(server + unsyncedNew, local);
 }
+
+// ---- deload weeks (lib/deload.js) ------------------------------------------------
+
+/**
+ * Whether to suggest a deload week now, from the workouts on the device:
+ * { reason: 'stalled' | 'long', stalled: [{ key, name }], hardWeeks } or null.
+ */
+export function deloadSuggestion() {
+  const list = workoutList().map((w) => ({
+    performed_at: w.performed_at,
+    items: w.items.map((item) => ({
+      key: itemExerciseId(item) ?? item.exercise_name.toLowerCase(),
+      name: item.exercise_name,
+      weight_unit: item.weight_unit,
+      sets: item.sets,
+    })),
+  }));
+  return deloadAdvice(list, { from: firstWholeWeek(), week: deloadWeek(), snoozedUntil: deloadSnooze() });
+}
+
+/** The deload week under way ({ start, end }), or null. */
+export const currentDeload = () => (isDeloadOn(deloadWeek()) ? deloadWeek() : null);
+
+/** Start a deload week now: workouts started in the next 7 days suggest lighter weights and fewer sets. */
+export function startDeload() {
+  const now = new Date();
+  setDeloadWeek({ start: now.toISOString(), end: addDays(now, 7).toISOString() });
+  setDeloadSnooze(null);
+}
+
+/** End the deload week now (it still counts as the last one, for when to suggest the next). */
+export function endDeload() {
+  const week = deloadWeek();
+  if (week) setDeloadWeek({ ...week, end: new Date().toISOString() });
+}
+
+/** "Not now": no suggestion for a week. */
+export const snoozeDeload = () => setDeloadSnooze(addDays(new Date(), 7).toISOString());

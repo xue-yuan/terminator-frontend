@@ -6,7 +6,8 @@ const STRONG = `Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,D
 2024-03-04 18:05:10,"Push, heavy",1h 12m,"Bench Press (Barbell)",W,40.0,8,0,0,"","Felt strong",
 2024-03-04 18:05:10,"Push, heavy",1h 12m,"Bench Press (Barbell)",1,100.0,5,0,0,,,8
 2024-03-04 18:05:10,"Push, heavy",1h 12m,"Bench Press (Barbell)",2,100.0,5,0,0,,,8.5
-2024-03-04 18:05:10,"Push, heavy",1h 12m,"Treadmill",1,0,0,1200,600,,,
+2024-03-04 18:05:10,"Push, heavy",1h 12m,"Treadmill",1,0,0,1.5,600,,,
+2024-03-04 18:05:10,"Push, heavy",1h 12m,"Plank",1,0,0,0,90,,,
 2024-03-06 07:30:00,Pull,55m,"Deadlift (Barbell)",1,180.0,3,0,0,,,
 `;
 
@@ -27,7 +28,7 @@ describe('Strong CSV', () => {
     expect(push).toMatchObject({ name: 'Push, heavy', duration_seconds: 72 * 60, notes: 'Felt strong' });
     expect(push.import_key).toBe('strong:2024-03-04 18:05:10:Push, heavy');
     expect(push.performed_at).toBe(new Date(2024, 2, 4, 18, 5, 10).toISOString()); // local time
-    expect(push.items).toHaveLength(1);
+    expect(push.items).toHaveLength(3);
     expect(push.items[0]).toMatchObject({ exercise_name: 'Bench Press (Barbell)', weight_unit: 'lb' });
     expect(push.items[0].sets).toEqual([
       { weight: 40, reps: 8, rpe: null, kind: 'warmup' },
@@ -37,8 +38,22 @@ describe('Strong CSV', () => {
     expect(pull.duration_seconds).toBe(55 * 60);
   });
 
-  it('skips cardio rows (no reps)', () => {
-    expect(skipped).toBe(1);
+  it('keeps cardio and timed sets: distance (miles, for someone in lb) and time', () => {
+    expect(skipped).toBe(0);
+    const [, treadmill, plank] = workouts[0].items;
+    expect(treadmill.sets).toEqual([
+      { weight: 0, reps: 0, rpe: null, kind: 'working', duration_seconds: 600, distance_m: 2414 },
+    ]);
+    expect(plank.sets[0]).toMatchObject({ reps: 0, duration_seconds: 90 });
+    expect(plank.sets[0].distance_m).toBeUndefined();
+  });
+
+  it('names timed and cardio exercises, so their next workout asks for a time', () => {
+    const { exercises } = fromCsv(STRONG, { unit: 'lb' });
+    expect(exercises.map((e) => [e.name, e.log_type])).toEqual([
+      ['Treadmill', 'cardio'],
+      ['Plank', 'time'],
+    ]);
   });
 });
 
@@ -112,7 +127,7 @@ describe('import files', () => {
 
   it('are summarized and sent in batches', () => {
     const backup = { workouts: fromCsv(STRONG).workouts, plans: [{ name: 'P' }], body_weights: [] };
-    expect(summarize(backup)).toMatchObject({ workouts: 2, sets: 4, exercises: 2, plans: 1 });
+    expect(summarize(backup)).toMatchObject({ workouts: 2, sets: 6, exercises: 4, plans: 1 }); // the treadmill and plank too
     const many = { workouts: Array.from({ length: 1201 }, (_, i) => ({ id: String(i) })), plans: [{ name: 'P' }] };
     const batches = importBatches(many);
     expect(batches.map((b) => b.workouts.length)).toEqual([500, 500, 201]);
