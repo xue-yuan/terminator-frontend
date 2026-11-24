@@ -551,6 +551,117 @@
   --on-heat-4: #ffffff;
 }
 
+/* Christmas, light: candy-cane red, evergreen heat, gold, on fresh snow. */
+[data-palette='christmas'] {
+  --bg: #f4f1ec;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --fill: rgb(120 110 100 / 0.12);
+  --fill-2: rgb(120 110 100 / 0.2);
+  --label: #14110f;
+  --label-2: #6f6762;
+  --label-3: #b0a8a2;
+  --separator: #d4ccc4;
+  --bar: rgb(247 244 240 / 0.82);
+  --accent: #c4122f;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(196 18 47 / 0.12);
+  --accent-2: #d9a21b;
+  --chart-line: #c4122f;
+  --heat-1: #5fbf7f;
+  --heat-2: #34a15f;
+  --heat-3: #17824a;
+  --heat-4: #0a6438;
+  --on-heat-1: #000000;
+  --on-heat-2: #000000;
+  --on-heat-3: #ffffff;
+  --on-heat-4: #ffffff;
+  /* Snowflakes (the page background only): white wouldn't show on snow, so an icy blue. */
+  --snow: rgb(176 196 222 / 0.8);
+  --snow-edge: rgb(176 196 222 / 0.3);
+}
+
+/* Christmas, dark: a winter night among the pines. */
+[data-theme='dark'][data-palette='christmas'],
+[data-theme='dark'] [data-palette='christmas'] {
+  --bg: #06100b;
+  --card: #0f1d16;
+  --elevated: #182a20;
+  --fill: rgb(120 150 130 / 0.22);
+  --fill-2: rgb(120 150 130 / 0.34);
+  --label: #f3f6f2;
+  --label-2: #93a59a;
+  --label-3: #56685d;
+  --separator: #21362b;
+  --bar: rgb(12 24 18 / 0.8);
+  --accent: #ef4559;
+  --on-accent: #ffffff;
+  --accent-soft: rgb(239 69 89 / 0.2);
+  --accent-2: #f2c14e;
+  --chart-line: #ff5c6e;
+  --heat-1: #0d5a32;
+  --heat-2: #127642;
+  --heat-3: #1c9855;
+  --heat-4: #3cc06f;
+  --on-heat-1: #ffffff;
+  --on-heat-2: #ffffff;
+  --on-heat-3: #000000;
+  --on-heat-4: #000000;
+  --snow: rgb(255 255 255 / 0.8);
+  --snow-edge: rgb(255 255 255 / 0.25);
+}
+
+/*
+  Christmas: snow falls behind everything (cards stay solid, so it only shows
+  between them and through the glass bars). Two layers of tiled flakes, each a
+  composited transform moved by exactly one tile, so the loop has no seam.
+  With reduced motion it lies still.
+*/
+:root[data-palette='christmas'] body {
+  background: transparent; /* the page's colour is <html>'s: the snow sits between them */
+}
+:root[data-palette='christmas'] body::before,
+:root[data-palette='christmas'] body::after {
+  content: '';
+  position: fixed;
+  inset: calc(-1 * var(--tile)) 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background-size: var(--tile) var(--tile);
+  will-change: transform;
+  animation: snowfall var(--fall) linear infinite;
+}
+:root[data-palette='christmas'] body::before {
+  --tile: 220px;
+  --fall: 18s;
+  background-image:
+    radial-gradient(circle at 24px 36px, var(--snow) 1.4px, var(--snow-edge) 2px, transparent 2.6px),
+    radial-gradient(circle at 118px 12px, var(--snow) 1.2px, var(--snow-edge) 1.8px, transparent 2.4px),
+    radial-gradient(circle at 176px 98px, var(--snow) 1.6px, var(--snow-edge) 2.2px, transparent 2.8px),
+    radial-gradient(circle at 64px 150px, var(--snow) 1.2px, var(--snow-edge) 1.8px, transparent 2.4px),
+    radial-gradient(circle at 150px 196px, var(--snow) 1.4px, var(--snow-edge) 2px, transparent 2.6px);
+}
+:root[data-palette='christmas'] body::after {
+  --tile: 340px;
+  --fall: 13s;
+  opacity: 0.85;
+  background-image:
+    radial-gradient(circle at 70px 60px, var(--snow) 2.2px, var(--snow-edge) 3px, transparent 3.8px),
+    radial-gradient(circle at 260px 170px, var(--snow) 2.6px, var(--snow-edge) 3.4px, transparent 4.2px),
+    radial-gradient(circle at 150px 290px, var(--snow) 2px, var(--snow-edge) 2.8px, transparent 3.6px);
+}
+@keyframes snowfall {
+  to {
+    transform: translate3d(0, var(--tile), 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-palette='christmas'] body::before,
+  :root[data-palette='christmas'] body::after {
+    animation: none;
+  }
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-card: var(--card);
