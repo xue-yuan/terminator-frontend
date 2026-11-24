@@ -33,8 +33,9 @@ export function formatWeight(w) {
   return Number.isInteger(w) ? String(w) : String(Math.round(w * 100) / 100);
 }
 
+/** "45 min", "1h 02m"; null without a time (none recorded, or 0: shown as "–", never "1 min"). */
 export function formatDuration(seconds) {
-  if (seconds == null) return null;
+  if (!(seconds > 0)) return null;
   const minutes = Math.max(1, Math.round(seconds / 60));
   if (minutes < 60) return `${minutes} min`;
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
@@ -93,6 +94,13 @@ export function formatTimedSet(set, distanceUnit = 'km') {
 /** Warm-up sets don't count towards set counts, volume or records. */
 export const isWarmup = (set) => set.kind === 'warmup';
 export const workingSets = (sets) => sets.filter((s) => !isWarmup(s));
+/**
+ * A working set that counts (for set counts, XP, the recap, the server's numbers):
+ * reps, or a time or a distance (timed and cardio sets log no reps).
+ */
+export const isCounted = (set) =>
+  !isWarmup(set) && (Number(set.reps) > 0 || set.duration_seconds > 0 || set.distance_m > 0);
+export const countedSets = (sets) => sets.filter(isCounted);
 
 /** "W" for a warm-up, else the working set's number (warm-ups aren't counted). */
 export function setLabel(sets, j) {
@@ -100,7 +108,7 @@ export function setLabel(sets, j) {
   return String(sets.slice(0, j + 1).filter((s) => !isWarmup(s)).length);
 }
 
-export const setCount = (w) => w.items.reduce((n, it) => n + workingSets(it.sets).length, 0);
+export const setCount = (w) => w.items.reduce((n, it) => n + countedSets(it.sets).length, 0);
 
 /** Total weight × reps of a workout's working sets, in `unit` (items logged in the other unit are converted). */
 export function volume(w, unit = 'kg') {

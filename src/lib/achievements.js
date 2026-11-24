@@ -3,7 +3,7 @@
 // you can wear. The rules live on the server; `rules` in its answer says how XP
 // is earned, so a finished workout's XP can be shown before it's uploaded.
 
-import { isWarmup } from './format';
+import { isCounted } from './format';
 
 // Lowest to highest. 'special' is a title given by hand to one person (never earned).
 export const MEDALS = ['bronze', 'silver', 'gold', 'platinum', 'special'];
@@ -54,9 +54,7 @@ export function levelProgress(xp, step) {
  */
 export function workoutXp(workout, rules, { streak = 0, firstThisWeek = false } = {}) {
   // Timed and cardio sets log a time or a distance instead of reps.
-  const working = workout.items
-    .flatMap((i) => i.sets)
-    .filter((s) => !isWarmup(s) && (Number(s.reps) > 0 || s.duration_seconds > 0 || s.distance_m > 0));
+  const working = workout.items.flatMap((i) => i.sets).filter(isCounted);
   const prs = working.filter((s) => s.pr?.length).length;
   const bonus =
     firstThisWeek && streak >= 2 ? Math.min(rules.streak_bonus_per_week * streak, rules.streak_bonus_max) : 0;

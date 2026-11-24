@@ -5,6 +5,7 @@ import { summary, workoutList } from '../lib/data';
 import { formatDay, plural } from '../lib/format';
 import { holdBackdrop } from '../lib/motion';
 import { completedSetCount, discardDraft, draft, repeatWorkout, restoreDraft, startWorkout } from '../lib/session';
+import { nextPlanDayId } from '../lib/stats';
 import { undoable } from '../lib/toast';
 import { ConfirmSheet, Section, Sheet } from './ui';
 
@@ -77,7 +78,7 @@ export function StartSheet() {
   const { startDay, repeat } = useStart();
   const recent = () => workoutList().slice(0, 3);
   const plan = () => summary.data()?.active_plan;
-  const nextId = () => summary.data()?.next_plan_day_id;
+  const nextId = () => nextPlanDayId();
   const next = () => plan()?.days.find((d) => d.id === nextId()) ?? plan()?.days[0];
   const others = () => (plan()?.days ?? []).filter((d) => d.id !== next()?.id);
 

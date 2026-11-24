@@ -36,6 +36,8 @@ describe('formatting', () => {
     expect(plural(2, 'new PR', 'new PRs')).toBe('2 new PRs');
     expect(formatDuration(3720)).toBe('1h 02m');
     expect(formatDuration(20)).toBe('1 min');
+    expect(formatDuration(0)).toBeNull(); // no time recorded: "–", not "1 min"
+    expect(formatDuration(null)).toBeNull();
     expect(formatClock(3725)).toBe('1:02:05');
   });
 
@@ -110,6 +112,16 @@ describe('warm-up sets', () => {
 
   it('are labelled W; working sets are numbered without them', () => {
     expect(sets.map((_, j) => setLabel(sets, j))).toEqual(['W', 'W', '1', '2']);
+  });
+
+  it('count only working sets that logged something, like the server', () => {
+    const mixed = [
+      { weight: 100, reps: 5, kind: 'working' },
+      { weight: 100, reps: 0, kind: 'working' }, // logged by older builds: not a set
+      { weight: 0, reps: 0, duration_seconds: 60, kind: 'working' }, // a plank
+      { weight: 0, reps: 0, distance_m: 5000, kind: 'working' }, // a run
+    ];
+    expect(setCount({ items: [{ weight_unit: 'kg', sets: mixed }] })).toBe(3);
   });
 });
 

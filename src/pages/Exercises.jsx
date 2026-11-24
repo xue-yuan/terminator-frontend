@@ -23,7 +23,9 @@ function topSet(sets, unit) {
     null,
   );
   if (!top) return null;
-  return top.weight > 0 ? { value: formatWeight(top.weight), unit, reps: top.reps } : { value: top.reps, unit: 'reps' };
+  return top.weight > 0
+    ? { value: formatWeight(top.weight), unit, reps: top.reps }
+    : { value: top.reps, unit: top.reps === 1 ? 'rep' : 'reps' };
 }
 
 /** Done ones first, most recent first; never-logged ones (e.g. from plans) after, by name. */

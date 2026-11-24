@@ -2,8 +2,17 @@ import { For, Show } from 'solid-js';
 import { A } from '@solidjs/router';
 import { ChevronRight, Trash2, TriangleAlert, Trophy } from 'lucide-solid';
 import { deleteWorkout, saveWorkout } from '../lib/data';
-import { formatDuration, formatNumber, formatWeekday, plural, setCount, volume } from '../lib/format';
-import { unit } from '../lib/prefs';
+import {
+  countedSets,
+  formatDistance,
+  formatDuration,
+  formatNumber,
+  formatWeekday,
+  plural,
+  setCount,
+  volume,
+} from '../lib/format';
+import { distanceUnit, unit } from '../lib/prefs';
 import { undoable } from '../lib/toast';
 import { SwipeRow } from './SwipeRow';
 
@@ -22,6 +31,15 @@ export default function WorkoutRow(props) {
       .items.map((i) => i.exercise_name)
       .join(' · ');
   const vol = () => volume(w(), unit());
+  const metres = () =>
+    w().items.reduce((m, it) => m + countedSets(it.sets).reduce((t, s) => t + (s.distance_m ?? 0), 0), 0);
+  /** The big number: volume, else the distance of a run, else the sets (as [number, unit]). */
+  const headline = () => {
+    if (vol() > 0) return [formatNumber(vol()), unit()];
+    if (metres() > 0) return formatDistance(metres(), distanceUnit()).split(' ');
+    const n = setCount(w());
+    return [n, n === 1 ? 'set' : 'sets'];
+  };
   return (
     <A href={`/workouts/${w().id}`} class="row row-tap gap-3 !py-2.5">
       <div class="w-10 shrink-0 text-center">
@@ -42,8 +60,8 @@ export default function WorkoutRow(props) {
       </div>
       <div class="shrink-0 text-right">
         <p class="num t-sub font-semibold">
-          {vol() > 0 ? formatNumber(vol()) : setCount(w())}
-          <span class="ml-0.5 text-[12px] font-medium text-label-2">{vol() > 0 ? unit() : 'sets'}</span>
+          {headline()[0]}
+          <span class="ml-0.5 text-[12px] font-medium text-label-2">{headline()[1]}</span>
         </p>
         <p class="t-foot text-label-2">{formatDuration(w().duration_seconds) ?? plural(setCount(w()), 'set')}</p>
       </div>

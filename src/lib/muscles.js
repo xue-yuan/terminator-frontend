@@ -2,7 +2,7 @@
 
 import { startOfWeek } from './dates';
 import { MUSCLE_GROUPS, REGIONS, regionOf } from './exercises';
-import { workingSets } from './format';
+import { countedSets } from './format';
 
 const KNOWN = new Set(MUSCLE_GROUPS.map(([key]) => key));
 
@@ -21,7 +21,7 @@ export function weeklyMuscleSets(workouts, mondays, muscleOfItem) {
     const week = weeks[index.get(startOfWeek(w.performed_at).getTime())];
     if (!week) continue;
     for (const item of w.items) {
-      const n = workingSets(item.sets).length;
+      const n = countedSets(item.sets).length;
       if (!n) continue;
       const named = muscleOfItem(item);
       const group = KNOWN.has(named) ? named : 'other';

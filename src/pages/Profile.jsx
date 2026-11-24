@@ -19,7 +19,7 @@ import { api } from '../lib/api';
 import { currentUser, isAdmin, signOut, updateUser } from '../lib/auth';
 import { levelProgress, unlocks } from '../lib/achievements';
 import { bodyWeightList, community, progression, refreshAll } from '../lib/data';
-import { formatDay, formatWeight, plural, timeAgo } from '../lib/format';
+import { formatDay, formatWeight, plural } from '../lib/format';
 import { canPromptInstall, isIOS, isStandalone, promptInstall } from '../lib/install';
 import { online } from '../lib/network';
 import {
@@ -244,8 +244,8 @@ export default function Profile() {
               {(last) =>
                 [
                   `${formatWeight(last().weight)} ${last().unit}`,
-                  // With body fat there's no room for when as well.
-                  last().body_fat != null ? `${Math.round(last().body_fat * 10) / 10}%` : timeAgo(last().measured_at),
+                  // When it was is on the Body page: next to the long label it only got cut off.
+                  last().body_fat != null ? `${Math.round(last().body_fat * 10) / 10}%` : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')

@@ -8,7 +8,7 @@
 // put together with your workouts in lib/stats.js.
 
 import { addDays, startOfWeek } from './dates';
-import { isWarmup } from './format';
+import { countedSets, isWarmup } from './format';
 import { estimate1RM } from './progress';
 import { convert } from './units';
 
@@ -43,7 +43,7 @@ const median = (values) => {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 };
 
-const workingCount = (w) => w.items.reduce((n, item) => n + item.sets.filter((s) => !isWarmup(s)).length, 0);
+const workingCount = (w) => w.items.reduce((n, item) => n + countedSets(item.sets).length, 0);
 
 /**
  * Hard weeks in a row up to now, and when the last light week (a deload, or a

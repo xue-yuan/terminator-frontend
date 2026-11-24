@@ -5,7 +5,7 @@ import { summary, workoutList } from '../lib/data';
 import { addDays, startOfWeek } from '../lib/dates';
 import { recapWasSeen } from '../lib/prefs';
 import { openRecapAt } from './Recap';
-import { describeTarget, formatClock, formatDay, plural } from '../lib/format';
+import { describeTarget, formatClock, formatDay, plural, setCount } from '../lib/format';
 import { useNow } from '../lib/now';
 import { completedSetCount, draft, elapsedSeconds } from '../lib/session';
 import {
@@ -13,6 +13,7 @@ import {
   deloadSuggestion,
   endDeload,
   muscleWeeks,
+  nextPlanDayId,
   snoozeDeload,
   startDeload,
   totalWorkouts,
@@ -37,7 +38,7 @@ export default function Home() {
   const muscles = createMemo(() => muscleWeeks(2));
   const day = () => {
     const days = plan()?.days ?? [];
-    return days.find((d) => d.id === (picked() ?? s()?.next_plan_day_id)) ?? days[0];
+    return days.find((d) => d.id === (picked() ?? nextPlanDayId())) ?? days[0];
   };
 
   return (
@@ -64,7 +65,7 @@ export default function Home() {
           <UpNext
             plan={plan()}
             day={day()}
-            nextId={s()?.next_plan_day_id}
+            nextId={nextPlanDayId()}
             onPick={setPicked}
             onStart={startDay}
             onEmpty={openSheet}
@@ -328,7 +329,7 @@ function RecapCard() {
         const t = Date.parse(w.performed_at);
         return t >= c.start.getTime() && t < c.end.getTime();
       });
-      if (done.length) return { ...c, workouts: done.length, sets: done.reduce((n, w) => n + setCountOf(w), 0) };
+      if (done.length) return { ...c, workouts: done.length, sets: done.reduce((n, w) => n + setCount(w), 0) };
     }
     return null;
   });
@@ -361,5 +362,3 @@ function RecapCard() {
     </Show>
   );
 }
-
-const setCountOf = (w) => w.items.reduce((n, item) => n + item.sets.filter((s) => s.kind !== 'warmup').length, 0);

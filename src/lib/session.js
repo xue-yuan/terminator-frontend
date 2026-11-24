@@ -649,13 +649,13 @@ export function restoreSet(i, j, set) {
   setDraft('focus', { ex: i, set: firstOpenSet(state.draft.exercises[i]) });
 }
 
-/** +/- buttons: start from the typed value, else the hint, else 0. A time steps in seconds. */
+/** +/- buttons: start from the typed value, else the hint, else 0. A time steps in seconds; reps stop at 1. */
 export function stepField(i, j, field, delta) {
   const ex = state.draft.exercises[i];
   const value = effectiveValue(ex, ex.sets[j], field);
   const current = field === 'time' ? parseDuration(value, plainTime(ex)) : parseNumber(value);
   const base = current == null || Number.isNaN(current) ? 0 : current;
-  const next = Math.max(0, Math.round((base + delta) * 100) / 100);
+  const next = Math.max(field === 'reps' ? 1 : 0, Math.round((base + delta) * 100) / 100);
   setDraft('exercises', i, 'sets', j, field, field === 'time' ? formatClock(next) : String(next));
 }
 
@@ -685,6 +685,8 @@ function setProblem(set, ex) {
   const weight = parseNumber(set.weight);
   const reps = parseNumber(set.reps);
   if (reps == null || Number.isNaN(reps) || reps < 0 || !Number.isInteger(reps)) return 'Enter reps';
+  // A set of 0 reps isn't a set: it would count in some places and not others.
+  if (reps === 0) return 'Reps must be at least 1';
   if (weight == null || Number.isNaN(weight) || weight < 0) return 'Enter a weight, or tap BW for bodyweight';
   return null;
 }

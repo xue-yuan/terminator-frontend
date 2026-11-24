@@ -3,6 +3,7 @@ import { A, useNavigate, useParams } from '@solidjs/router';
 import { ChartLine, ChevronRight, SearchX } from 'lucide-solid';
 import { OfflineError } from '../lib/api';
 import {
+  bodyWeightList,
   catalogEntry,
   deleteExercise,
   exerciseById,
@@ -31,7 +32,16 @@ import {
 } from '../lib/format';
 import { online } from '../lib/network';
 import { distanceUnit, restSeconds, unit as defaultUnit, weightStep } from '../lib/prefs';
-import { chartPoints, estimate1RM, METRICS, metricsFor, normalizeSessions, records } from '../lib/progress';
+import {
+  bodyWeightAt,
+  chartPoints,
+  estimate1RM,
+  isMixed,
+  METRICS,
+  metricsFor,
+  normalizeSessions,
+  records,
+} from '../lib/progress';
 import { renameInDraft } from '../lib/session';
 import { toast } from '../lib/toast';
 import { fromMetres, UNITS } from '../lib/units';
@@ -92,7 +102,16 @@ export default function ExerciseDetail() {
   );
 
   const raw = createMemo(() => exerciseSessions(id()));
-  const sessions = createMemo(() => normalizeSessions(raw(), viewUnit()));
+  // Done with and without added weight: chart body weight + what was added, so both count.
+  const mixed = createMemo(() => isMixed(raw()));
+  const withBody = () => mixed() && bodyWeightList().length > 0;
+  const sessions = createMemo(() =>
+    normalizeSessions(
+      raw(),
+      viewUnit(),
+      withBody() ? { bodyWeight: (at) => bodyWeightAt(bodyWeightList(), at, viewUnit()) } : {},
+    ),
+  );
   const available = createMemo(() => metricsFor(raw()));
   const activeMetric = () => (available().includes(metric()) ? metric() : available()[0]);
   const weighted = () => METRICS[activeMetric()].weighted;
@@ -117,6 +136,9 @@ export default function ExerciseDetail() {
   const point = () => points()[selIndex()];
   const rec = createMemo(() => records(sessions()));
 
+  /** A set's load in words: "BW + 10" when body weight is counted in, else the weight. */
+  const load = (set) => (set.bw ? (set.added > 0 ? `BW + ${w1(set.added)}` : 'BW') : w1(set.weight));
+
   /** Second line of the readout: what the selected number is made of. */
   const detail = () => {
     const p = point();
@@ -125,12 +147,12 @@ export default function ExerciseDetail() {
     const day = formatDay(p.session.performed_at);
     switch (activeMetric()) {
       case 'top': {
-        const reps = Math.max(...sets.filter((s) => s.weight === p.y).map((s) => s.reps));
-        return `× ${plural(reps, 'rep')} · ${day}`;
+        const top = sets.filter((s) => s.weight === p.y).sort((a, b) => b.reps - a.reps)[0];
+        return [`× ${plural(top.reps, 'rep')}`, top.bw ? load(top) : null, day].filter(Boolean).join(' · ');
       }
       case 'e1rm': {
         const from = sets.find((s) => estimate1RM(s.weight, s.reps) === p.y);
-        return from ? `from ${w1(from.weight)} × ${from.reps} · ${day}` : day;
+        return from ? `from ${load(from)} × ${from.reps} · ${day}` : day;
       }
       case 'volume':
       case 'totalReps':
@@ -171,7 +193,10 @@ export default function ExerciseDetail() {
       return [count, { label: 'Longest', value: r.longest ? formatClock(r.longest.duration_seconds) : null }];
     }
     if (available()[0] === 'reps') {
-      return [count, { label: 'Best set', value: r.bestReps?.reps ?? null, unit: 'reps' }];
+      return [
+        count,
+        { label: 'Best set', value: r.bestReps?.reps ?? null, unit: r.bestReps?.reps === 1 ? 'rep' : 'reps' },
+      ];
     }
     return [
       count,
@@ -268,6 +293,13 @@ export default function ExerciseDetail() {
         </section>
         <Show when={points().length === 1}>
           <p class="group-footer">Log it again to see a trend.</p>
+        </Show>
+        <Show when={mixed() && weighted()}>
+          <p class="group-footer">
+            {withBody()
+              ? 'Weights include your body weight (your weigh-in nearest each workout) plus any weight added.'
+              : 'Log your body weight to chart bodyweight sets along with the weighted ones.'}
+          </p>
         </Show>
       </Show>
 

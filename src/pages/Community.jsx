@@ -19,12 +19,14 @@ const initials = (name) =>
 // Avatar colours (iOS system colours), the same for someone every time.
 const COLORS = ['#ff9500', '#34c759', '#5856d6', '#ff2d55', '#007aff', '#af52de', '#30b0c7', '#a2845e'];
 
+/** Someone's initials in their colour; yours in the accent, as on the You tab. */
 function Avatar(props) {
   return (
     <span
       class="flex shrink-0 items-center justify-center rounded-full font-semibold text-white"
+      classList={{ 'bg-gradient-to-br from-accent to-accent-2 !text-on-accent': !!props.you }}
       style={{
-        background: COLORS[props.id % COLORS.length],
+        background: props.you ? undefined : COLORS[props.id % COLORS.length],
         width: `${props.size ?? 44}px`,
         height: `${props.size ?? 44}px`,
         'font-size': `${Math.round((props.size ?? 44) * 0.38)}px`,
@@ -76,7 +78,7 @@ export default function Community() {
           <For each={players()}>
             {(p) => (
               <div class="row" style={{ '--sep-inset': '4.25rem' }}>
-                <Avatar id={p.id} name={p.name} />
+                <Avatar id={p.id} name={p.name} you={p.you} />
                 <span class="min-w-0 flex-1">
                   {/* The tags go to the next line rather than cutting the name short. */}
                   <span class="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
@@ -154,7 +156,7 @@ function Goal(props) {
               <For each={g().trained.slice(0, 8)}>
                 {(id) => (
                   <span class="rounded-full ring-2 ring-[var(--card)]">
-                    <Avatar id={id} name={props.byId.get(id)?.name} size={28} />
+                    <Avatar id={id} name={props.byId.get(id)?.name} you={props.byId.get(id)?.you} size={28} />
                   </span>
                 )}
               </For>
@@ -199,7 +201,7 @@ function Feed() {
       <For each={items()} fallback={<p class="row t-sub text-label-2">Workouts finished today show up here.</p>}>
         {(item) => (
           <div class="row" style={{ '--sep-inset': '4.25rem' }}>
-            <Avatar id={item.player_id} name={item.name} size={40} />
+            <Avatar id={item.player_id} name={item.name} you={item.you} size={40} />
             <span class="min-w-0 flex-1">
               <span class="block truncate font-medium">{item.you ? 'You' : item.name}</span>
               <span class="t-foot block truncate text-label-2">Finished a workout · {formatTime(item.at)}</span>

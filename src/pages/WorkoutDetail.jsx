@@ -226,7 +226,11 @@ export default function WorkoutDetail() {
         <div class="mt-3">
           <StatRow
             stats={[
-              { label: 'Time', value: formatDuration(grow(w().duration_seconds)) },
+              // While it counts up from 0 it reads "1 min" (no time recorded stays "–").
+              {
+                label: 'Time',
+                value: formatDuration(w().duration_seconds > 0 ? Math.max(1, grow(w().duration_seconds)) : null),
+              },
               { label: 'Sets', value: Math.round(grow(setCount(w()))) },
               // A run has no volume to speak of: its distance instead.
               volume(w()) === 0 && distanceOf(w()) > 0

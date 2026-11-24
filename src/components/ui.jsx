@@ -99,7 +99,8 @@ export function StatRow(props) {
             {/* A long unit ("lb × 10") drops under the number rather than squeezing it. */}
             <p class="num mt-0.5 flex flex-wrap items-baseline gap-x-1 font-semibold">
               <span class="text-[24px] leading-8 whitespace-nowrap">{s.value ?? '–'}</span>
-              <Show when={s.unit}>
+              {/* No unit next to "–": a dash isn't a number of anything. */}
+              <Show when={s.unit && s.value != null}>
                 <span class="text-[14px] leading-5 font-medium whitespace-nowrap text-label-2">{s.unit}</span>
               </Show>
             </p>

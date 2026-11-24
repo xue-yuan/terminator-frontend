@@ -3,7 +3,16 @@
 // share sheet. Drawn on a canvas with the system font, in the theme's accent
 // colours on a dark card, so it looks like the app wherever it's posted.
 
-import { formatClock, formatDistance, formatDuration, formatLoad, formatNumber, isTimedSet, plural } from './format';
+import {
+  formatClock,
+  formatDistance,
+  formatDuration,
+  formatLoad,
+  formatNumber,
+  isCounted,
+  isTimedSet,
+  plural,
+} from './format';
 import { convert } from './units';
 
 const W = 1080;
@@ -334,7 +343,7 @@ export async function workoutCard(workout, { who = {}, unit = 'kg', distanceUnit
   const volume = working.reduce((t, { s, i }) => t + convert(s.weight * s.reps, i.weight_unit ?? 'kg', unit), 0);
   const distance = working.reduce((m, { s }) => m + (s.distance_m ?? 0), 0);
   const time = { label: 'Time', value: formatDuration(workout.duration_seconds) ?? '–' };
-  const sets = { label: 'Sets', value: working.length };
+  const sets = { label: 'Sets', value: working.filter(({ s }) => isCounted(s)).length };
   const load =
     volume > 0 || !distance
       ? { label: 'Volume', value: formatNumber(volume), unit }

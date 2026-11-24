@@ -2,7 +2,7 @@
 // Sessions come from data.exerciseSessions(); weights are converted to the
 // unit being viewed, so kg and lb sessions share one line.
 
-import { isWarmup } from './format';
+import { isTimedSet, isWarmup } from './format';
 import { convert } from './units';
 
 /** Estimated one-rep max (Epley). Sets above 12 reps are too far out to estimate. */
@@ -43,12 +43,37 @@ export function metricsFor(sessions) {
 }
 
 /**
+ * Done both with bodyweight only (BW, logged as 0) and with weight added (a
+ * belt on dips or pull-ups)? Then what's lifted is body weight + the added
+ * weight, which puts both kinds of set on one line.
+ */
+export function isMixed(sessions) {
+  const sets = sessions.flatMap((s) => s.sets).filter((s) => !isWarmup(s) && s.reps > 0 && !isTimedSet(s));
+  return sets.some((s) => s.weight > 0) && sets.some((s) => !(s.weight > 0));
+}
+
+/**
+ * Body weight at `at` (ISO) in `unit`: the weigh-in closest in time (`entries`:
+ * { measured_at, weight, unit }), or null without any.
+ */
+export function bodyWeightAt(entries, at, unit) {
+  const t = Date.parse(at);
+  let best = null;
+  for (const e of entries) {
+    if (!best || Math.abs(Date.parse(e.measured_at) - t) < Math.abs(Date.parse(best.measured_at) - t)) best = e;
+  }
+  return best ? convert(best.weight, best.unit, unit) : null;
+}
+
+/**
  * Sessions merged per workout (an exercise can appear twice in one workout,
  * e.g. after merging two names) with every weight in `unit`. Warm-up sets are
  * left out (only counted), so no metric or record includes them.
- * -> [{ workout_id, performed_at, pending, warmups, sets: [{ weight, reps, rpe, original }] }]
+ * `bodyWeight(at)` (in `unit`), for a mixed exercise (isMixed): each set's
+ * weight is then body weight + the weight added (`added`), and `bw` says so.
+ * -> [{ workout_id, performed_at, pending, warmups, sets: [{ weight, reps, rpe, added?, bw?, original }] }]
  */
-export function normalizeSessions(sessions, unit) {
+export function normalizeSessions(sessions, unit, { bodyWeight = null } = {}) {
   const byWorkout = new Map();
   for (const s of sessions) {
     let entry = byWorkout.get(s.workout_id);
@@ -56,13 +81,17 @@ export function normalizeSessions(sessions, unit) {
       entry = { workout_id: s.workout_id, performed_at: s.performed_at, pending: !!s.pending, warmups: 0, sets: [] };
       byWorkout.set(s.workout_id, entry);
     }
+    const bw = bodyWeight ? bodyWeight(s.performed_at) : null;
     for (const set of s.sets) {
       if (isWarmup(set)) {
         entry.warmups += 1;
         continue;
       }
+      const added = convert(set.weight, s.weight_unit, unit);
+      const withBody = bw != null && !isTimedSet(set);
       entry.sets.push({
-        weight: convert(set.weight, s.weight_unit, unit),
+        weight: withBody ? bw + added : added,
+        ...(withBody ? { added, bw: true } : {}),
         reps: set.reps,
         rpe: set.rpe,
         duration_seconds: set.duration_seconds ?? null,

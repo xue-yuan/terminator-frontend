@@ -1,10 +1,10 @@
 import { createEffect, createMemo, createSignal, For, on, Show, untrack } from 'solid-js';
 import { Plus, Scale, Trash2 } from 'lucide-solid';
 import { bodyWeightList, deleteBodyWeight, logBodyWeight } from '../lib/data';
-import { addDays } from '../lib/dates';
 import { formatDay, formatTime, formatWeight, plural, toLocalInput } from '../lib/format';
 import { unit as defaultUnit } from '../lib/prefs';
 import { toast, undoable } from '../lib/toast';
+import { changeOver, spanLabel } from '../lib/trend';
 import { convert, UNITS } from '../lib/units';
 import LineChart from '../components/LineChart';
 import { SwipeRow } from '../components/SwipeRow';
@@ -47,19 +47,14 @@ export default function Body() {
   const inView = (e) => (showing() === 'fat' ? e.body_fat : convert(e.weight, e.unit, viewUnit()));
   const shownUnit = () => (showing() === 'fat' ? '%' : viewUnit());
   const fmt = (v) => (showing() === 'fat' ? pct(v) : w1(v));
+  /** "+0.6", "−1.2", "±0": signed as shown (one decimal), so +0.04 isn't "+0". */
+  const signed = (delta) => {
+    const shown = Math.round(delta * 10) / 10;
+    return `${shown > 0 ? '+' : shown < 0 ? '−' : '±'}${fmt(Math.abs(shown))}`;
+  };
 
-  /** Change since the entry closest to 30 days before the latest one. */
-  const change = createMemo(() => {
-    const list = entries();
-    if (list.length < 2) return null;
-    const target = addDays(list[0].measured_at, -30).getTime();
-    const before = list
-      .slice(1)
-      .reduce((best, e) =>
-        Math.abs(Date.parse(e.measured_at) - target) < Math.abs(Date.parse(best.measured_at) - target) ? e : best,
-      );
-    return inView(list[0]) - inView(before);
-  });
+  /** Change since the entry closest to 30 days before the latest one ({ delta, days }), labelled with its real span. */
+  const change = createMemo(() => changeOver(entries(), inView));
 
   const points = createMemo(() => {
     const span = RANGES.find(([key]) => key === range())[2];
@@ -116,12 +111,9 @@ export default function Body() {
             stats={[
               { label: 'Latest', value: fmt(inView(latestShown())), unit: shownUnit() },
               {
-                label: '30 days',
-                value:
-                  change() == null
-                    ? null
-                    : `${change() > 0 ? '+' : change() < 0 ? '−' : '±'}${fmt(Math.abs(change()))}`,
-                unit: change() == null ? null : shownUnit(),
+                label: change() ? spanLabel(change().days) : '30 days',
+                value: change() ? signed(change().delta) : null,
+                unit: change() ? shownUnit() : null,
               },
               { label: 'Weigh-ins', value: entries().length },
             ]}

@@ -7,6 +7,7 @@ import { activatePlan, deactivatePlan, deletePlan, plans, summary } from '../lib
 import { describeTarget, plural } from '../lib/format';
 import { useBack } from '../lib/nav';
 import { draft } from '../lib/session';
+import { nextPlanDayId } from '../lib/stats';
 import { toast } from '../lib/toast';
 import { useStart } from '../components/StartSheet';
 import { ConfirmSheet, EmptyState, PageHeader, Spinner } from '../components/ui';
@@ -31,7 +32,7 @@ export default function PlanDetail() {
   const plan = () => cached() ?? remote();
   const isOwner = () => plan()?.creator_id === currentUser()?.id;
   const isActive = () => summary.data()?.active_plan?.id === id() || plan()?.is_active;
-  const nextId = () => (isActive() ? summary.data()?.next_plan_day_id : null);
+  const nextId = () => (isActive() ? nextPlanDayId() : null);
 
   async function run(key, action, message) {
     setBusy(key);

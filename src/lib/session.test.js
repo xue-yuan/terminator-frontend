@@ -50,6 +50,17 @@ describe('logging sets', () => {
     expect(s.logSet(0, 0)).toMatch(/weight/i);
     expect(set(0, 0).done).toBe(false);
   });
+
+  it('rejects a set of 0 reps, and − stops at 1 rep', () => {
+    type(0, 0, 'weight', '100');
+    type(0, 0, 'reps', '0');
+    expect(s.logSet(0, 0)).toMatch(/at least 1/);
+    expect(set(0, 0).done).toBe(false);
+    type(0, 0, 'reps', '2');
+    s.stepField(0, 0, 'reps', -1);
+    s.stepField(0, 0, 'reps', -1);
+    expect(set(0, 0).reps).toBe('1');
+  });
 });
 
 describe('bodyweight sets', () => {

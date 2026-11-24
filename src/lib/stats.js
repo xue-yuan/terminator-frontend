@@ -62,6 +62,19 @@ export function weekStreak() {
   return truncated ? Math.max(streak, summary.data()?.week_streak ?? 0) : streak;
 }
 
+/**
+ * The active plan's day to do next: the one after the plan day done last. Worked
+ * out here so a workout logged offline moves it on right away; the server's pick
+ * when none of the workouts on the device is of the plan (its last one is older).
+ */
+export function nextPlanDayId() {
+  const s = summary.data();
+  const ids = (s?.active_plan?.days ?? []).map((d) => d.id);
+  const last = workoutList().find((w) => w.plan_day_id != null && ids.includes(w.plan_day_id)); // newest first
+  if (!last) return s?.next_plan_day_id ?? null;
+  return ids[(ids.indexOf(last.plan_day_id) + 1) % ids.length];
+}
+
 export function totalWorkouts() {
   const server = summary.data()?.total_workouts;
   const local = workoutList().length;
